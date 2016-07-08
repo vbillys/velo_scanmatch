@@ -1,0 +1,18 @@
+<launch>
+
+  <arg name="rviz" default="true" />
+
+  <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen"/>
+
+ <node pkg="velo_scanmatch" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
+  </node>
+
+  <node pkg="velo_scanmatch" type="laserMapping" name="laserMapping" output="screen"/>
+  <node pkg="velo_scanmatch" type="transformMaintenance" name="transformMaintenance" output="screen"/>
+<!--
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/loam_velodyne.rviz" />
+  </group>
+-->
+
+</launch>
