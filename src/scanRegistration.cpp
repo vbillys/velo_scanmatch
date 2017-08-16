@@ -223,8 +223,10 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     else {
       scanID = roundedAngle + (N_SCANS - 1);
     }
+    //ROS_INFO("scanID: %d roundedAngle: %d", scanID, roundedAngle);
     if (scanID > (N_SCANS - 1) || scanID < 0 ){
       count--;
+      ROS_WARN("Failed scanID");
       continue;
     }
 
@@ -353,6 +355,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       scanCount = int(laserCloud->points[i].intensity);
 
       if (scanCount > 0 && scanCount < N_SCANS) {
+	//ROS_INFO("scanCount: %d start: %d, end: %d", scanCount, i+5, i-5);
         scanStartInd[scanCount] = i + 5;
         scanEndInd[scanCount - 1] = i - 5;
       }
@@ -427,10 +430,12 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   pcl::PointCloud<PointType> surfPointsLessFlat;
 
   for (int i = 0; i < N_SCANS; i++) {
+    if (i == 11 || i == 10) continue;
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>);
     for (int j = 0; j < 6; j++) {
       int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;
       int ep = (scanStartInd[i] * (5 - j)  + scanEndInd[i] * (j + 1)) / 6 - 1;
+      //ROS_INFO("i: %d sp: %d, ep: %d", i, sp, ep);
 
       for (int k = sp + 1; k <= ep; k++) {
         for (int l = k; l >= sp + 1; l--) {

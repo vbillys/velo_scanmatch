@@ -2,7 +2,9 @@
 
   <arg name="rviz" default="true" />
 
-  <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen"/>
+  <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">
+  <remap from="velodyne_points" to="/velodyne1/velodyne_points"/>
+  </node>
 
  <node pkg="velo_scanmatch" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
   </node>
