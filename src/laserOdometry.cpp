@@ -838,6 +838,7 @@ int main(int argc, char** argv)
       laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
       laserOdometryTrans.setOrigin(tf::Vector3(tx, ty, tz));
       tfBroadcaster.sendTransform(laserOdometryTrans);
+      ROS_INFO("laser odom tf from lO sent");
 
       int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
       for (int i = 0; i < cornerPointsLessSharpNum; i++) {

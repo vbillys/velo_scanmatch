@@ -1077,6 +1077,16 @@ int main(int argc, char** argv)
 
       }
     }
+    else
+    {
+      if (false == newLaserCloudCornerLast) ROS_INFO("corner last not new");
+      if (false == newLaserCloudSurfLast) ROS_INFO("surf last not new");
+      if (false == newLaserCloudFullRes) ROS_INFO("full res not new");
+      if (false == newLaserOdometry) ROS_INFO("laser odom not new");
+      if ( ! (fabs(timeLaserCloudCornerLast - timeLaserOdometry) < 0.005)) ROS_INFO("corner last not sync with laser odom");
+      if ( ! (fabs(timeLaserCloudSurfLast - timeLaserOdometry) < 0.005)) ROS_INFO("surf last not sync with laser odom");
+      if ( ! (fabs(timeLaserCloudFullRes - timeLaserOdometry) < 0.005)) ROS_INFO("full res not sync with laser odom");
+    }
 
     status = ros::ok();
     rate.sleep();
