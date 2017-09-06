@@ -184,7 +184,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     if (systemInitCount >= systemDelay) {
       systemInited = true;
     }
-    return;
+    //return;
   }
 
   std::vector<int> scanStartInd(N_SCANS, 0);
@@ -615,10 +615,18 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   tf::Quaternion orientation;
   tf::quaternionMsgToTF(imuIn->orientation, orientation);
   tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+  //ROS_INFO ("%.3f %.3f %.3f", roll, pitch, yaw);
+  //return;
 
-  float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
-  float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
-  float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
+  //float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
+  //float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
+  //float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
+  //float accX = 0;
+  //float accY = 0;
+  //float accZ = 0;
+  float accX =  imuIn->linear_acceleration.y;
+  float accY =  imuIn->linear_acceleration.z;
+  float accZ =  imuIn->linear_acceleration.x;
 
   imuPointerLast = (imuPointerLast + 1) % imuQueLength;
 

@@ -119,6 +119,7 @@ void transformAssociateToMap()
             - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
             - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
   transformTobeMapped[0] = 0;//-asin(srx);
+  transformTobeMapped[0] = -asin(srx);
 
   float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
                - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
@@ -149,6 +150,8 @@ void transformAssociateToMap()
                - calx*calz*cblx*sblz);
   transformTobeMapped[2] = 0;//atan2(srzcrx / cos(transformTobeMapped[0]), 
                                  //crzcrx / cos(transformTobeMapped[0]));
+  transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
+  crzcrx / cos(transformTobeMapped[0]));
 
   x1 = cos(transformTobeMapped[2]) * transformIncre[3] - sin(transformTobeMapped[2]) * transformIncre[4];
   y1 = sin(transformTobeMapped[2]) * transformIncre[3] + cos(transformTobeMapped[2]) * transformIncre[4];
@@ -161,6 +164,7 @@ void transformAssociateToMap()
   transformTobeMapped[3] = transformAftMapped[3] 
                          - (cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2);
   transformTobeMapped[4] = 0;//transformAftMapped[4] - y2;
+  transformTobeMapped[4] = transformAftMapped[4] - y2;
   transformTobeMapped[5] = transformAftMapped[5] 
                          - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
 }
@@ -923,10 +927,13 @@ int main(int argc, char** argv)
             }
 
             transformTobeMapped[0] += 0;//matX.at<float>(0, 0);
+	    transformTobeMapped[0] += matX.at<float>(0, 0);
             transformTobeMapped[1] += matX.at<float>(1, 0);
             transformTobeMapped[2] += 0;//matX.at<float>(2, 0);
+	    transformTobeMapped[2] += matX.at<float>(2, 0);
             transformTobeMapped[3] += matX.at<float>(3, 0);
             transformTobeMapped[4] += 0;//matX.at<float>(4, 0);
+	    transformTobeMapped[4] += matX.at<float>(4, 0);
             transformTobeMapped[5] += matX.at<float>(5, 0);
 
             float deltaR = sqrt(
