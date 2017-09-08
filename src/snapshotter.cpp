@@ -16,6 +16,7 @@
 #include "helper/yaw_angle_calc.hpp"
 
 // PCL
+#include <pcl_ros/transforms.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -48,6 +49,9 @@ public:
 
     // make sure we start at zero
     dist_tot = 0;
+
+    // must publish once first to keep publishing camera_last
+    has_published_once = false;
 
     // Create a publisher for the clouds that we assemble
     //pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
@@ -153,9 +157,6 @@ public:
       //srv.request.begin = e.last_real;
       srv.request.begin = prev_tref;
       srv.request.end   = e.current_real;
-      // store previous time and pose for next iteration
-      prev_tref = e.current_real;
-      last_tf_pose = current_tf_pose;
       // TODO: extend to SE3
       x_prev = x_now;
       y_prev = y_now;
@@ -170,12 +171,33 @@ public:
 	//we got assembled scans but for reprocessing we need to transform to camera frame
         pcl::PointCloud<pcl::PointXYZI> pcl_pc;
 	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
+	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
+	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
+	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
+	pcl_pc.header.frame_id = "camera_last";
+	//pcl_pc.header.frame_id = "camera_init";
 	pub_.publish(pcl_pc);
+	has_published_once = true;
       }
       else
       {
 	ROS_ERROR("Error making service call\n") ;
       }
+      
+      // we moved pref_tref here as it is still needed for transform to camera
+      prev_tref = e.current_real;
+      // store previous time and pose for next iteration
+      last_tf_pose = current_tf_pose;
+    }
+
+    // maintain happy camera_last tf happy
+    if (has_published_once)
+    {
+      ros::Time transform_expiration = e.current_real + ros::Duration(0.5);
+      tf::StampedTransform tmp_tf_stamped(last_tf_pose,
+	  transform_expiration,
+	  "camera_init", "camera_last");
+      tf_caster_.sendTransform(tmp_tf_stamped);
     }
   }
 
@@ -199,6 +221,7 @@ private:
   double yaw_prev;
   bool waiting_for_pc2;
   double dist_tot;
+  bool has_published_once;
 } ;
 
 // Give time to transform look the camera pose
