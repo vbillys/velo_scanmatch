@@ -41,6 +41,9 @@ public:
     // indicate that we are waiting for first pc2 msg
     waiting_for_pc2 = true;
 
+    // make sure we start at zero
+    dist_tot = 0;
+
     // Create a publisher for the clouds that we assemble
     pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
 
@@ -105,9 +108,11 @@ public:
     double delta_x = x_now - x_prev;
     double delta_y = y_now - y_prev;
     double dist = sqrt ( delta_x*delta_x + delta_y*delta_y );
+    dist_tot +=dist;
     // WARNING: HARDCODED Thresh
-    if ( 1.5 <= dist ) 
+    if ( 1.5 <= dist_tot ) 
     {
+      dist_tot=0;
       ROS_INFO("Triggering because translation of: %.2f", dist);
       has_moved = true;
     }
@@ -183,6 +188,7 @@ private:
   double y_prev;
   double yaw_prev;
   bool waiting_for_pc2;
+  double dist_tot;
 } ;
 
 // Give time to transform look the camera pose
