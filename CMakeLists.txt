@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  laser_assembler
   tf)
 
 #find_package(Eigen3 REQUIRED)
@@ -38,5 +39,7 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV
 
 add_executable(transformMaintenance src/transformMaintenance.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_executable(snapshotter src/snapshotter.cpp)
+target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
 
