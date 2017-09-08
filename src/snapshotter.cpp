@@ -15,6 +15,11 @@
 // helper functions
 #include "helper/yaw_angle_calc.hpp"
 
+// PCL
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 
 /***
@@ -45,7 +50,8 @@ public:
     dist_tot = 0;
 
     // Create a publisher for the clouds that we assemble
-    pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
+    //pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
+    pub_ = n_.advertise<pcl::PointCloud<pcl::PointXYZI> > ("assembled_cloud2", 1);
 
     // Create the service client for calling the assembler
     client_ = n_.serviceClient<AssembleScans2>("assemble_scans2");
@@ -160,7 +166,11 @@ public:
       {
 	//ROS_INFO("Published Cloud with %u points", (uint32_t)(srv.response.cloud.points.size())) ;
 	ROS_INFO("Published Cloud with points") ;
-	pub_.publish(srv.response.cloud);
+	//pub_.publish(srv.response.cloud);
+	//we got assembled scans but for reprocessing we need to transform to camera frame
+        pcl::PointCloud<pcl::PointXYZI> pcl_pc;
+	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
+	pub_.publish(pcl_pc);
       }
       else
       {

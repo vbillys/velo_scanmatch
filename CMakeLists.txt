@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   laser_assembler
   tf_conversions
+  pcl_ros
+  pcl_conversions
   tf)
 
 #find_package(Eigen3 REQUIRED)
