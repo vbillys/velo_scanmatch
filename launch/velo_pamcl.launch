@@ -78,7 +78,8 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
     <param name="fixed_frame" type="string" value="camera_init" />
   </node>
   <!--<node type="periodic_snapshotter" pkg="laser_assembler" name="my_snapshotter"/>-->
-  <node type="snapshotter" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>
+  <!--<node type="snapshotter" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>-->
+  <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>
   <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
    <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 $(arg bagfile) --pause" output="log"/>
 
