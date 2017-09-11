@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(velo_scanmatch)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
@@ -42,7 +43,11 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV
 
 add_executable(transformMaintenance src/transformMaintenance.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
+
+add_executable(snapaccumer src/snapaccumer.cpp)
+target_link_libraries(snapaccumer ${catkin_LIBRARIES})
 
 
