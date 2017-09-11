@@ -57,6 +57,7 @@ public:
 
     // make sure we start at zero
     dist_tot = 0;
+    dist_accum = 0;
 
     // must publish once first to keep publishing camera_last
     has_published_once = false;
@@ -144,15 +145,23 @@ public:
     double delta_y = y_now - y_prev;
     double dist = sqrt ( delta_x*delta_x + delta_y*delta_y );
     dist_tot +=dist;
+    dist_accum +=dist;
 
     // WARNING: HARDCODED Thresh
-    if ( step_size_ <= dist_tot ) 
+    if ( step_size_ <= dist_accum ) 
     {
-      ROS_INFO("Triggering because translation of: %.2f", dist_tot);
-      dist_tot=0;
+      ROS_INFO("Triggering because translation of: %.2f", dist_accum);
+      // accumulate in history
+      ScansHist sh;
+      sh.d = dist_tot;
+      history_.push_back(sh);
+
+      // reset accumulator
+      dist_accum=0;
+      // indicate a step size has been passed
       has_moved = true;
     }
-    else ROS_INFO("trans is : x:%.2f y:%.2f total:%.3f", delta_x, delta_y, dist_tot);
+    else ROS_INFO("trans is : x:%.2f y:%.2f total:%.3f", delta_x, delta_y, dist_accum);
 
 
     // get details can collect heading change
@@ -193,10 +202,24 @@ public:
 
     if (has_moved)
     {
+      tf::Stamped<tf::Pose> begin_pose;
+      // we need to go though the history and find latest window
+      double found_window_size;
+      for (std::vector<ScansHist>::const_iterator i = history_.begin(); i != history_.end(); ++i) {
+	if ( (dist_tot - i->d) <= window_size_) {
+	  // we should either found or frames are still too early
+	  begin_pose = i->pose;
+	  found_window_size = dist_tot - i->d;
+	  break;
+	} 
+      }
+      ROS_INFO("window size: %.3f", found_window_size);
+
       // Populate our service request based on our timer callback times
       AssembleScans2 srv;
       //srv.request.begin = e.last_real;
-      srv.request.begin = prev_tref;
+      //srv.request.begin = prev_tref;
+      srv.request.begin = begin_pose.stamp_;
       srv.request.end   = e.current_real;
 
       // Make the service call
@@ -209,12 +232,14 @@ public:
         pcl::PointCloud<pcl::PointXYZI> pcl_pc;
 	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
 	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
-	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
+	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
+	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose.inverse());
 	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
 	pcl_pc.header.frame_id = "camera_last";
 	//pcl_pc.header.frame_id = "camera_init";
 	pub_.publish(pcl_pc);
 	has_published_once = true;
+	current_last_tf_pose.setData(begin_pose);
       }
       else
       {
@@ -231,7 +256,7 @@ public:
     if (true) //(has_published_once)
     {
       ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
-      tf::StampedTransform tmp_tf_stamped(last_tf_pose,
+      tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
 	  transform_expiration,
 	  "camera_init", "camera_last");
       tf_caster_.sendTransform(tmp_tf_stamped);
@@ -252,6 +277,7 @@ private:
   tf::TransformBroadcaster tf_caster_;
   tf::Stamped<tf::Pose> current_tf_pose;
   tf::Stamped<tf::Pose> last_tf_pose;
+  tf::Stamped<tf::Pose> current_last_tf_pose;
 
   double x_prev;
   double y_prev;
@@ -262,7 +288,7 @@ private:
 #endif 
 
   bool waiting_for_pc2;
-  double dist_tot;
+  double dist_tot, dist_accum;
   bool has_published_once;
 
   // for window size and step size
