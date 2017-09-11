@@ -50,7 +50,7 @@ class PeriodicSnapshotter
   }
 public:
 
-  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=1.5, const double & timer_period=0.5) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period)
+  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.5, const double & timer_period=0.5) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period)
   {
     // indicate that we are waiting for first pc2 msg
     waiting_for_pc2 = true;
@@ -154,6 +154,7 @@ public:
       // accumulate in history
       ScansHist sh;
       sh.d = dist_tot;
+      sh.pose = current_tf_pose;
       history_.push_back(sh);
 
       // reset accumulator
@@ -205,7 +206,8 @@ public:
       tf::Stamped<tf::Pose> begin_pose;
       // we need to go though the history and find latest window
       double found_window_size;
-      for (std::vector<ScansHist>::const_iterator i = history_.begin(); i != history_.end(); ++i) {
+      int counter = 0;
+      for (std::vector<ScansHist>::const_iterator i = history_.begin(); i != history_.end(); ++i, ++counter) {
 	if ( (dist_tot - i->d) <= window_size_) {
 	  // we should either found or frames are still too early
 	  begin_pose = i->pose;
@@ -213,7 +215,7 @@ public:
 	  break;
 	} 
       }
-      ROS_INFO("window size: %.3f", found_window_size);
+      ROS_INFO("window size: %.3f, %d", found_window_size, counter);
 
       // Populate our service request based on our timer callback times
       AssembleScans2 srv;
@@ -221,6 +223,7 @@ public:
       //srv.request.begin = prev_tref;
       srv.request.begin = begin_pose.stamp_;
       srv.request.end   = e.current_real;
+      //srv.request.end   = latest_pc2_time;
 
       // Make the service call
       if (client_.call(srv))
@@ -240,6 +243,7 @@ public:
 	pub_.publish(pcl_pc);
 	has_published_once = true;
 	current_last_tf_pose.setData(begin_pose);
+	//current_last_tf_pose.setData(current_tf_pose);
       }
       else
       {
