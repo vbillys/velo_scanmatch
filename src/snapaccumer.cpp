@@ -103,9 +103,9 @@ public:
       // use this first one as first ref to estimate motion
       prev_tref = latest_pc2_time; //e.current_real;
       // get current position of camera
-      // as last position
-      // TODO: extend to SE3
-      //getCurrentCameraPose(e.current_real, last_tf_pose);
+	// as last position
+	// TODO: extend to SE3
+	//getCurrentCameraPose(e.current_real, last_tf_pose);
       getCurrentCameraPose(latest_pc2_time, last_tf_pose);
 
       // first one, put into history
@@ -122,10 +122,10 @@ public:
 
       // disable angle calculation for speed
 #if 0
-      last_tf_pose.getBasis().getRPY(pitch, yaw_prev, roll);
-      tf::matrixTFToEigen(last_tf_pose.getBasis(), emat);
-      Eigen::AngleAxisd angleaxis(emat);
-      yaw_prev = angleaxis.angle();
+	last_tf_pose.getBasis().getRPY(pitch, yaw_prev, roll);
+	tf::matrixTFToEigen(last_tf_pose.getBasis(), emat);
+	Eigen::AngleAxisd angleaxis(emat);
+	yaw_prev = angleaxis.angle();
 #endif 
 
       return;
@@ -160,31 +160,31 @@ public:
 
     // disable angle calculation for speed
 #if 0
-    double yaw_now;
+      double yaw_now;
 #endif 
 
-    //if (! has_moved)
-    //{
-      //current_tf_pose.getBasis().getEulerYPR(yaw_now, pitch , roll);
-      //current_tf_pose.getBasis().getEulerYPR(pitch, yaw_now , roll);
-
-      // disable angle calculation for speed
-#if 0
-    current_tf_pose.getBasis().getRPY(pitch, yaw_now , roll);
-    tf::matrixTFToEigen(current_tf_pose.getBasis(), emat);
-    Eigen::AngleAxisd angleaxis(emat);
-    yaw_now = angleaxis.angle();
-#endif 
-
-      //double delta_yaw = ANGLEDIFF(yaw_now , yaw_prev);
-      //// WARNING: HARDCODED Thresh
-      //if (0.25 <= delta_yaw) 
+      //if (! has_moved)
       //{
-	//ROS_INFO("Triggering because rotation of: %.2f %.2f", yaw_now, delta_yaw);
-	////has_moved = true;
+	//current_tf_pose.getBasis().getEulerYPR(yaw_now, pitch , roll);
+	//current_tf_pose.getBasis().getEulerYPR(pitch, yaw_now , roll);
+
+	// disable angle calculation for speed
+#if 0
+	current_tf_pose.getBasis().getRPY(pitch, yaw_now , roll);
+	tf::matrixTFToEigen(current_tf_pose.getBasis(), emat);
+	Eigen::AngleAxisd angleaxis(emat);
+	yaw_now = angleaxis.angle();
+#endif 
+
+	//double delta_yaw = ANGLEDIFF(yaw_now , yaw_prev);
+	//// WARNING: HARDCODED Thresh
+	//if (0.25 <= delta_yaw) 
+	//{
+	  //ROS_INFO("Triggering because rotation of: %.2f %.2f", yaw_now, delta_yaw);
+	  ////has_moved = true;
+	//}
+	//else ROS_INFO("rot is : %.2f %.2f %.2f", yaw_now, yaw_prev, delta_yaw);
       //}
-      //else ROS_INFO("rot is : %.2f %.2f %.2f", yaw_now, yaw_prev, delta_yaw);
-    //}
 
     // TODO: extend to SE3
     x_prev = x_now;
@@ -258,7 +258,7 @@ private:
 
   // disable angle calculation for speed
 #if 0
-  double yaw_prev;
+    double yaw_prev;
 #endif 
 
   bool waiting_for_pc2;
