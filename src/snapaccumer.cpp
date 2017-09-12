@@ -24,25 +24,7 @@
 
 #include <memory>
 #include <vector>
-//#include <mutex> 
 
-//// Templated message type for holding generic sensor messages.
-//template<typename T>
-//struct Message {
-  //typename T::ConstPtr msg;
-  //std::string tag;
-  //typedef std::shared_ptr<Message<T> > Ptr;
-  //typedef std::shared_ptr<const Message<T> > ConstPtr;
-  //Message(const typename T::ConstPtr m, const std::string& t)
-    //: msg(m), tag(t) {}
-//};
-
-//// Typedefs for queues of all sensor types.
-//typedef std::vector<Message<sensor_msgs::PointCloud2>::ConstPtr> RosPC2Que;
-//typedef std::vector<Message<pcl::PointCloud<pcl::PointXYZI> >::ConstPtr> PclPcQue;
-
-// struct to handle scans history
-// in future we can handle scans ourselves
 typedef pcl::PointCloud<pcl::PointXYZI> PCLPointCloudXYI;
 struct ScansHist
 {
@@ -109,15 +91,12 @@ public:
     has_published_once = false;
 
     // Create a publisher for the clouds that we assemble
-    //pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
-    //pub_ = n_.advertise<pcl::PointCloud<pcl::PointXYZI> > ("assembled_cloud2", 1);
     pub_ = n_.advertise<sensor_msgs::PointCloud2 > ("assembled_cloud2", 1);
 
     // Create the service client for calling the assembler
     client_ = n_.serviceClient<AssembleScans2>("assemble_scans2");
 
     // Start the timer that will trigger the processing loop (timerCallback)
-    //timer_ = n_.createTimer(ros::Duration(5,0), &PeriodicSnapshotter::timerCallback, this);
     timer_ = n_.createTimer(ros::Duration(timer_period_), &PeriodicSnapshotter::timerCallback, this);
 
     // Need to track if we've called the timerCallback at least once
@@ -151,9 +130,8 @@ public:
       // use this first one as first ref to estimate motion
       prev_tref = latest_pc2_time; //e.current_real;
       // get current position of camera
-	// as last position
-	// TODO: extend to SE3
-	//getCurrentCameraPose(e.current_real, last_tf_pose);
+      // as last position
+      // TODO: extend to SE3
       getCurrentCameraPose(latest_pc2_time, last_tf_pose);
 
       // first one, put into history
@@ -165,8 +143,6 @@ public:
 
       x_prev = last_tf_pose.getOrigin().x();
       y_prev = last_tf_pose.getOrigin().y();
-      //last_tf_pose.getBasis().getEulerYPR(yaw_prev, pitch, roll);
-      //last_tf_pose.getBasis().getEulerYPR(pitch, yaw_prev, roll);
 
       // disable angle calculation for speed
 #if 0
@@ -182,7 +158,6 @@ public:
     // check if camera has moved certain distance or heading
     bool has_moved = false;
     // get current one and compare with previous
-    //getCurrentCameraPose(e.current_real, current_tf_pose);
     getCurrentCameraPose(latest_pc2_time, current_tf_pose);
     // get details can collect distance
     // TODO: extend to SE3
@@ -195,7 +170,6 @@ public:
     dist_tot +=dist;
     dist_accum +=dist;
 
-    // WARNING: HARDCODED Thresh
     if ( step_size_ <= dist_accum ) 
     {
       ROS_INFO("Triggering because translation of: %.2f", dist_accum);
@@ -203,8 +177,6 @@ public:
       ScansHist sh;
       sh.d = dist_tot;
       sh.pc = PCLPointCloudXYI(latest_pcl_pc);
-      //sh.pose = current_tf_pose;
-      // probably we can't do as above
       transferPose(current_tf_pose, sh.pose);
       history_.push_back(sh);
 
@@ -214,12 +186,13 @@ public:
       has_moved = true;
 
       // ok, now check if we need to recalculate window
-      if ( dist_tot > window_size_ ) //&& (dist_tot - last_dist_tot ) > step_size_)
+      if ( dist_tot > window_size_ )
       {
 	while (dist_tot - history_.at(begin_hist_index_).d > window_size_) {
 	  begin_hist_index_++;
 	} 
       }
+      // don publish if this flag is set
       else if (false == publish_before_fullsized_) {
 	// recheck if really close to fullsized
 	// hardcoded factor here
@@ -235,140 +208,23 @@ public:
     // get details can collect heading change
     // TODO: extend to SE3
 
-    // disable angle calculation for speed
-#if 0
-      double yaw_now;
-#endif 
-
-      //if (! has_moved)
-      //{
-	//current_tf_pose.getBasis().getEulerYPR(yaw_now, pitch , roll);
-	//current_tf_pose.getBasis().getEulerYPR(pitch, yaw_now , roll);
-
-	// disable angle calculation for speed
-#if 0
-	current_tf_pose.getBasis().getRPY(pitch, yaw_now , roll);
-	tf::matrixTFToEigen(current_tf_pose.getBasis(), emat);
-	Eigen::AngleAxisd angleaxis(emat);
-	yaw_now = angleaxis.angle();
-#endif 
-
-	//double delta_yaw = ANGLEDIFF(yaw_now , yaw_prev);
-	//// WARNING: HARDCODED Thresh
-	//if (0.25 <= delta_yaw) 
-	//{
-	  //ROS_INFO("Triggering because rotation of: %.2f %.2f", yaw_now, delta_yaw);
-	  ////has_moved = true;
-	//}
-	//else ROS_INFO("rot is : %.2f %.2f %.2f", yaw_now, yaw_prev, delta_yaw);
-      //}
-
-    // TODO: extend to SE3
     x_prev = x_now;
     y_prev = y_now;
-    //yaw_prev = yaw_now;
 
     if (has_moved)
     {
       tf::Stamped<tf::Pose> begin_pose;
       transferPose(history_.at(begin_hist_index_).pose, begin_pose);
       tf::Stamped<tf::Pose> begin_pose_inverse;
-      //transferPose(TFPose(history_.at(begin_hist_index_).pose.inverse(), 0,""), begin_pose_inverse );
       begin_pose_inverse.setData(history_.at(begin_hist_index_).pose.inverse());
       ROS_INFO("begin_hist_index_: %ld", begin_hist_index_);
-      //begin_pose_inverse.setData(history_.back().pose.inverse());
-      // we need to go though the history and find latest window
-      double found_window_size;
-      int counter = 0;
-      PCLPointCloudXYI accum_pc;
-      for (std::vector<ScansHist>::const_iterator i = history_.begin()+begin_hist_index_; i != history_.end(); ++i, ++counter) {
-	PCLPointCloudXYI temp_pc;
-	// first pc is the same transform , speed up a bit
-	//if (i != history_.begin() + begin_hist_index_) 
-	if (false) 
-	{
-	  //pcl_ros::transformPointCloud(i->pc, temp_pc,  i->pose.inverse() * begin_pose);
-	  //pcl_ros::transformPointCloud(i->pc, temp_pc, begin_pose * i->pose.inverse());
-	  //pcl_ros::transformPointCloud(i->pc, temp_pc, i->pose * begin_pose_inverse);
-	  //pcl_ros::transformPointCloud(i->pc, temp_pc, i->pose.inverse() );
-	  pcl_ros::transformPointCloud(i->pc, temp_pc, begin_pose_inverse);
-	  //pcl_ros::transformPointCloud(temp_pc, temp_pc, i->pose * begin_pose_inverse);
-	  //pcl_ros::transformPointCloud(temp_pc, temp_pc, begin_pose_inverse * i->pose );
-	}
-	else
-	  temp_pc = PCLPointCloudXYI(i->pc);
-	accum_pc += temp_pc;
-#if 0
-	if ( (dist_tot - i->d) <= window_size_) {
-	  // we should either found or frames are still too early
-	  //begin_pose = i->pose;
-	  // probably we can't do as above
-	  transferPose(i->pose, begin_pose);
-	  found_window_size = dist_tot - i->d;
-	  //accum_pc += i->pc;
-	} 
-	else {
-	  break;
-	} 
-#endif
-      }
-      pcl_ros::transformPointCloud(accum_pc, accum_pc, begin_pose_inverse);
-      //latest_accum_pc = PCLPointCloudXYI(accum_pc);
+
       latest_accum_pc.clear();
-      latest_accum_pc += accum_pc;
-      latest_accum_pc.header.frame_id = "camera_last";
-      //latest_accum_pc.header.stamp = e.current_real.toNSec();
-      //latest_accum_pc.header.stamp = (e.current_real - ros::Duration(timer_period_)).toNSec();
-      ROS_INFO("window size: %.3f, %d", found_window_size, counter);
-
-      // Need to run through one more time to inverse each frame
-
-#if 0
-      // Populate our service request based on our timer callback times
-      AssembleScans2 srv;
-      //srv.request.begin = e.last_real;
-      //srv.request.begin = prev_tref;
-      srv.request.begin = begin_pose.stamp_;
-      //srv.request.end   = e.current_real;
-      srv.request.end   = latest_pc2_time;
-
-      // Make the service call
-      if (client_.call(srv))
-      {
-	//ROS_INFO("Published Cloud with %u points", (uint32_t)(srv.response.cloud.points.size())) ;
-	ROS_INFO("Published Cloud with points") ;
-	//pub_.publish(srv.response.cloud);
-	//we got assembled scans but for reprocessing we need to transform to camera frame
-        pcl::PointCloud<pcl::PointXYZI> pcl_pc;
-	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
-	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
-	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
-	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose);
-	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
-	//pcl_pc.header.frame_id = "camera_last";
-	pcl_pc.header.frame_id = "camera_init";
-	pub_.publish(pcl_pc);
-	has_published_once = true;
-	//current_last_tf_pose.setData(begin_pose);
-	transferPose(begin_pose, current_last_tf_pose);
-	//current_last_tf_pose.setData(current_tf_pose);
+      for (std::vector<ScansHist>::const_iterator i = history_.begin()+begin_hist_index_; i != history_.end(); ++i) {
+	latest_accum_pc += i->pc;
       }
-      else
-      {
-	ROS_ERROR("Error making service call\n") ;
-      }
-
-#else
-      //pcl_ros::transformPointCloud( accum_pc, accum_pc, begin_pose.inverse());
-      //pcl_ros::transformPointCloud( accum_pc, accum_pc, last_tf_pose.inverse());
-      //accum_pc.header.frame_id = "camera_init";
-      accum_pc.header.frame_id = "camera_last";
-      //accum_pc.header.frame_id = "camera";
-      //pub_.publish(accum_pc);
+      pcl_ros::transformPointCloud(latest_accum_pc , latest_accum_pc , begin_pose_inverse);
       transferPose(begin_pose, current_last_tf_pose);
-      //transferPose(begin_pose, history_.back().pose);
-      //transferPose(history_.back().pose, current_last_tf_pose);
-#endif
       
       // we moved pref_tref here as it is still needed for transform to camera
       prev_tref = e.current_real;
@@ -378,32 +234,21 @@ public:
     }
 
     // maintain happy camera_last tf happy
-    //if (true) //(has_published_once)
     if (has_published_once)
     {
-      ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
-      tf::StampedTransform tmp_tf_stamped; //(current_last_tf_pose,
-      //tf::StampedTransform tmp_tf_stamped(last_tf_pose,
-	  //transform_expiration,
-	  //"camera_init", "camera_last");
+      //ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
+      tf::StampedTransform tmp_tf_stamped;
       tmp_tf_stamped.setData(current_last_tf_pose);
-      //tmp_tf_stamped.stamp_ = e.current_real;
-      //tmp_tf_stamped.stamp_ = transform_expiration;
       tmp_tf_stamped.stamp_ = ros::Time::now();
       tmp_tf_stamped.frame_id_ = "camera_init";
       tmp_tf_stamped.child_frame_id_ = "camera_last";
       tf_caster_.sendTransform(tmp_tf_stamped);
 
       if (has_moved) {
-	//latest_accum_pc.header.stamp = ros::Time::now().toNSec();
-	//latest_accum_pc.header.stamp = e.current_real.toNSec();
 	sensor_msgs::PointCloud2 accumulated;
 	pcl::toROSMsg(latest_accum_pc, accumulated);
-	//accumulated.header.stamp = e.current_real- ros::Duration(timer_period_);
 	accumulated.header.stamp = ros::Time::now();
-	//accumulated.header.stamp = e.current_real;
 	accumulated.header.frame_id = "/camera_last";
-	//pub_.publish(latest_accum_pc);
 	pub_.publish(accumulated);
       }
 
@@ -430,11 +275,6 @@ private:
 
   double x_prev;
   double y_prev;
-
-  // disable angle calculation for speed
-#if 0
-    double yaw_prev;
-#endif 
 
   bool waiting_for_pc2;
   double dist_tot, dist_accum;
