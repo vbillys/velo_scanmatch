@@ -92,7 +92,7 @@ class PeriodicSnapshotter
   }
 public:
 
-  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.1, const double & timer_period=0.1) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period)
+  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.1, const double & timer_period=0.1, bool publish_before_fullsized=false) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period), publish_before_fullsized_(publish_before_fullsized)
   {
     // indicate that we are waiting for first pc2 msg
     waiting_for_pc2 = true;
@@ -219,6 +219,14 @@ public:
 	while (dist_tot - history_.at(begin_hist_index_).d > window_size_) {
 	  begin_hist_index_++;
 	} 
+      }
+      else if (false == publish_before_fullsized_) {
+	// recheck if really close to fullsized
+	// hardcoded factor here
+	has_moved = false;
+	if (dist_tot * 1.5 > window_size_) {
+	  has_moved = true;
+	}
       }
     }
     else ROS_INFO("trans is : x:%.2f y:%.2f total:%.3f", delta_x, delta_y, dist_accum);
@@ -441,6 +449,7 @@ private:
   double timer_period_;
 
   size_t begin_hist_index_;
+  bool publish_before_fullsized_;
 } ;
 
 // Give time to transform look the camera pose
