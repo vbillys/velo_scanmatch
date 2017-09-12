@@ -215,7 +215,9 @@ public:
       // ok, now check if we need to recalculate window
       if ( dist_tot > window_size_ ) //&& (dist_tot - last_dist_tot ) > step_size_)
       {
-	begin_hist_index_++;
+	while (dist_tot - history_.at(begin_hist_index_).d > window_size_) {
+	  begin_hist_index_++;
+	} 
       }
     }
     else ROS_INFO("trans is : x:%.2f y:%.2f total:%.3f", delta_x, delta_y, dist_accum);
@@ -264,7 +266,7 @@ public:
       tf::Stamped<tf::Pose> begin_pose_inverse;
       //transferPose(TFPose(history_.at(begin_hist_index_).pose.inverse(), 0,""), begin_pose_inverse );
       begin_pose_inverse.setData(history_.at(begin_hist_index_).pose.inverse());
-      ROS_INFO("begin_hist_index_: %d", begin_hist_index_);
+      ROS_INFO("begin_hist_index_: %ld", begin_hist_index_);
       //begin_pose_inverse.setData(history_.back().pose.inverse());
       // we need to go though the history and find latest window
       double found_window_size;
