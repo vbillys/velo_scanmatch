@@ -31,6 +31,22 @@ struct ScansHist
   double d;
 };
 
+typedef tf::Stamped<tf::Pose> TFPose;
+/**
+ * A helper function to transfer TFPose.
+ * This is because problem no copy constructor (maybe) for TFPose
+ * @param[in] source  source of TFPose
+ * @param[out] target  TFPose applied here
+ *
+ * Currently no error catcher
+ */
+void transferPose(const TFPose & source , TFPose & target)
+{
+  target.stamp_ = source.stamp_;
+  target.frame_id_ = source.frame_id_;
+  target.setData(source);
+} 
+
 /***
  * This a simple test app that requests a point cloud from the
  * point_cloud_assembler every 80 seconds, and then publishes the
@@ -154,7 +170,9 @@ public:
       // accumulate in history
       ScansHist sh;
       sh.d = dist_tot;
-      sh.pose = current_tf_pose;
+      //sh.pose = current_tf_pose;
+      // probably we can't do as above
+      transferPose(current_tf_pose, sh.pose);
       history_.push_back(sh);
 
       // reset accumulator
@@ -210,7 +228,9 @@ public:
       for (std::vector<ScansHist>::const_iterator i = history_.begin(); i != history_.end(); ++i, ++counter) {
 	if ( (dist_tot - i->d) <= window_size_) {
 	  // we should either found or frames are still too early
-	  begin_pose = i->pose;
+	  //begin_pose = i->pose;
+	  // probably we can't do as above
+	  transferPose(i->pose, begin_pose);
 	  found_window_size = dist_tot - i->d;
 	  break;
 	} 
@@ -222,8 +242,8 @@ public:
       //srv.request.begin = e.last_real;
       //srv.request.begin = prev_tref;
       srv.request.begin = begin_pose.stamp_;
-      srv.request.end   = e.current_real;
-      //srv.request.end   = latest_pc2_time;
+      //srv.request.end   = e.current_real;
+      srv.request.end   = latest_pc2_time;
 
       // Make the service call
       if (client_.call(srv))
@@ -236,13 +256,14 @@ public:
 	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
 	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
 	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
-	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose.inverse());
+	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose);
 	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
 	pcl_pc.header.frame_id = "camera_last";
 	//pcl_pc.header.frame_id = "camera_init";
 	pub_.publish(pcl_pc);
 	has_published_once = true;
-	current_last_tf_pose.setData(begin_pose);
+	//current_last_tf_pose.setData(begin_pose);
+	transferPose(begin_pose, current_last_tf_pose);
 	//current_last_tf_pose.setData(current_tf_pose);
       }
       else
