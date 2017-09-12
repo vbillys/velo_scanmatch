@@ -22,13 +22,33 @@
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <memory>
+#include <vector>
+//#include <mutex> 
+
+//// Templated message type for holding generic sensor messages.
+//template<typename T>
+//struct Message {
+  //typename T::ConstPtr msg;
+  //std::string tag;
+  //typedef std::shared_ptr<Message<T> > Ptr;
+  //typedef std::shared_ptr<const Message<T> > ConstPtr;
+  //Message(const typename T::ConstPtr m, const std::string& t)
+    //: msg(m), tag(t) {}
+//};
+
+//// Typedefs for queues of all sensor types.
+//typedef std::vector<Message<sensor_msgs::PointCloud2>::ConstPtr> RosPC2Que;
+//typedef std::vector<Message<pcl::PointCloud<pcl::PointXYZI> >::ConstPtr> PclPcQue;
 
 // struct to handle scans history
 // in future we can handle scans ourselves
+typedef pcl::PointCloud<pcl::PointXYZI> PCLPointCloudXYI;
 struct ScansHist
 {
   tf::Stamped<tf::Pose> pose;
   double d;
+  PCLPointCloudXYI pc;
 };
 
 typedef tf::Stamped<tf::Pose> TFPose;
@@ -59,14 +79,20 @@ class PeriodicSnapshotter
 {
 
   // callback for caching latest tf from pc2
+  // also now for caching point cloud data as well
   void pc2Callback(const sensor_msgs::PointCloud2ConstPtr& msg)
   {
+    history_mutex_.lock();
+
     latest_pc2_time=msg->header.stamp;
     waiting_for_pc2 = false;
+    pcl::fromROSMsg(*msg, latest_pcl_pc);
+
+    history_mutex_.unlock();
   }
 public:
 
-  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.5, const double & timer_period=0.5) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period)
+  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.1, const double & timer_period=0.1) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period)
   {
     // indicate that we are waiting for first pc2 msg
     waiting_for_pc2 = true;
@@ -74,6 +100,10 @@ public:
     // make sure we start at zero
     dist_tot = 0;
     dist_accum = 0;
+    last_dist_tot = 0;
+
+    // begin index, we cache to faster
+    begin_hist_index_ = 0;
 
     // must publish once first to keep publishing camera_last
     has_published_once = false;
@@ -160,6 +190,7 @@ public:
     double delta_x = x_now - x_prev;
     double delta_y = y_now - y_prev;
     double dist = sqrt ( delta_x*delta_x + delta_y*delta_y );
+    last_dist_tot = dist_tot;
     dist_tot +=dist;
     dist_accum +=dist;
 
@@ -170,6 +201,7 @@ public:
       // accumulate in history
       ScansHist sh;
       sh.d = dist_tot;
+      sh.pc = PCLPointCloudXYI(latest_pcl_pc);
       //sh.pose = current_tf_pose;
       // probably we can't do as above
       transferPose(current_tf_pose, sh.pose);
@@ -179,6 +211,12 @@ public:
       dist_accum=0;
       // indicate a step size has been passed
       has_moved = true;
+
+      // ok, now check if we need to recalculate window
+      if ( dist_tot > window_size_ ) //&& (dist_tot - last_dist_tot ) > step_size_)
+      {
+	begin_hist_index_++;
+      }
     }
     else ROS_INFO("trans is : x:%.2f y:%.2f total:%.3f", delta_x, delta_y, dist_accum);
 
@@ -222,21 +260,53 @@ public:
     if (has_moved)
     {
       tf::Stamped<tf::Pose> begin_pose;
+      transferPose(history_.at(begin_hist_index_).pose, begin_pose);
+      tf::Stamped<tf::Pose> begin_pose_inverse;
+      //transferPose(TFPose(history_.at(begin_hist_index_).pose.inverse(), 0,""), begin_pose_inverse );
+      begin_pose_inverse.setData(history_.at(begin_hist_index_).pose.inverse());
+      ROS_INFO("begin_hist_index_: %d", begin_hist_index_);
+      //begin_pose_inverse.setData(history_.back().pose.inverse());
       // we need to go though the history and find latest window
       double found_window_size;
       int counter = 0;
-      for (std::vector<ScansHist>::const_iterator i = history_.begin(); i != history_.end(); ++i, ++counter) {
+      PCLPointCloudXYI accum_pc;
+      for (std::vector<ScansHist>::const_iterator i = history_.begin()+begin_hist_index_; i != history_.end(); ++i, ++counter) {
+	PCLPointCloudXYI temp_pc;
+	// first pc is the same transform , speed up a bit
+	//if (i != history_.begin() + begin_hist_index_) 
+	if (true) 
+	{
+	  //pcl_ros::transformPointCloud(i->pc, temp_pc,  i->pose.inverse() * begin_pose);
+	  //pcl_ros::transformPointCloud(i->pc, temp_pc, begin_pose * i->pose.inverse());
+	  //pcl_ros::transformPointCloud(i->pc, temp_pc, i->pose * begin_pose_inverse);
+	  //pcl_ros::transformPointCloud(i->pc, temp_pc, i->pose.inverse() );
+	  pcl_ros::transformPointCloud(i->pc, temp_pc, begin_pose_inverse);
+	  //pcl_ros::transformPointCloud(temp_pc, temp_pc, i->pose * begin_pose_inverse);
+	  //pcl_ros::transformPointCloud(temp_pc, temp_pc, begin_pose_inverse * i->pose );
+	}
+	else
+	  temp_pc = PCLPointCloudXYI(i->pc);
+	accum_pc += temp_pc;
+	//pcl_ros::transformPointCloud(accum_pc, accum_pc, begin_pose_inverse);
+#if 0
 	if ( (dist_tot - i->d) <= window_size_) {
 	  // we should either found or frames are still too early
 	  //begin_pose = i->pose;
 	  // probably we can't do as above
 	  transferPose(i->pose, begin_pose);
 	  found_window_size = dist_tot - i->d;
+	  //accum_pc += i->pc;
+	} 
+	else {
 	  break;
 	} 
+#endif
       }
       ROS_INFO("window size: %.3f, %d", found_window_size, counter);
 
+      // Need to run through one more time to inverse each frame
+
+#if 0
       // Populate our service request based on our timer callback times
       AssembleScans2 srv;
       //srv.request.begin = e.last_real;
@@ -255,11 +325,11 @@ public:
         pcl::PointCloud<pcl::PointXYZI> pcl_pc;
 	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
 	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
-	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
+	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
 	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose);
 	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
-	pcl_pc.header.frame_id = "camera_last";
-	//pcl_pc.header.frame_id = "camera_init";
+	//pcl_pc.header.frame_id = "camera_last";
+	pcl_pc.header.frame_id = "camera_init";
 	pub_.publish(pcl_pc);
 	has_published_once = true;
 	//current_last_tf_pose.setData(begin_pose);
@@ -270,6 +340,18 @@ public:
       {
 	ROS_ERROR("Error making service call\n") ;
       }
+
+#else
+      //pcl_ros::transformPointCloud( accum_pc, accum_pc, begin_pose.inverse());
+      //pcl_ros::transformPointCloud( accum_pc, accum_pc, last_tf_pose.inverse());
+      //accum_pc.header.frame_id = "camera_init";
+      accum_pc.header.frame_id = "camera_last";
+      //accum_pc.header.frame_id = "camera";
+      pub_.publish(accum_pc);
+      transferPose(begin_pose, current_last_tf_pose);
+      //transferPose(begin_pose, history_.back().pose);
+      //transferPose(history_.back().pose, current_last_tf_pose);
+#endif
       
       // we moved pref_tref here as it is still needed for transform to camera
       prev_tref = e.current_real;
@@ -281,8 +363,8 @@ public:
     if (true) //(has_published_once)
     {
       ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
-      //tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
-      tf::StampedTransform tmp_tf_stamped(last_tf_pose,
+      tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
+      //tf::StampedTransform tmp_tf_stamped(last_tf_pose,
 	  transform_expiration,
 	  "camera_init", "camera_last");
       tf_caster_.sendTransform(tmp_tf_stamped);
@@ -298,6 +380,7 @@ private:
   bool first_time_;
   ros::Time prev_tref;
   ros::Time latest_pc2_time;
+  PCLPointCloudXYI latest_pcl_pc;
   
   tf::TransformListener tf_listen_;
   tf::TransformBroadcaster tf_caster_;
@@ -315,14 +398,17 @@ private:
 
   bool waiting_for_pc2;
   double dist_tot, dist_accum;
+  double last_dist_tot;
   bool has_published_once;
 
   // for window size and step size
   std::vector<ScansHist> history_;
+  boost::mutex history_mutex_;
   double window_size_;
   double step_size_;
   double timer_period_;
 
+  size_t begin_hist_index_;
 } ;
 
 // Give time to transform look the camera pose
