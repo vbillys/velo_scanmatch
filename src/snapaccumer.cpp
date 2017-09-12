@@ -235,8 +235,8 @@ public:
         pcl::PointCloud<pcl::PointXYZI> pcl_pc;
 	pcl::fromROSMsg(srv.response.cloud, pcl_pc);
 	//pcl_ros::transformPointCloud("camera", prev_tref, pcl_pc, "camera_init", pcl_pc, tf_listen_);
-	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
-	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose.inverse());
+	pcl_ros::transformPointCloud( pcl_pc, pcl_pc, last_tf_pose.inverse());
+	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, begin_pose.inverse());
 	//pcl_ros::transformPointCloud( pcl_pc, pcl_pc, current_tf_pose.inverse());
 	pcl_pc.header.frame_id = "camera_last";
 	//pcl_pc.header.frame_id = "camera_init";
@@ -260,7 +260,8 @@ public:
     if (true) //(has_published_once)
     {
       ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
-      tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
+      //tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
+      tf::StampedTransform tmp_tf_stamped(last_tf_pose,
 	  transform_expiration,
 	  "camera_init", "camera_last");
       tf_caster_.sendTransform(tmp_tf_stamped);
