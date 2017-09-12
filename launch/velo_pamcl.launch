@@ -1,0 +1,86 @@
+<launch>
+
+<param name="/use_sim_time" value="true"/>
+<node pkg="tf" type="static_transform_publisher" name="map_to_camera_init" 
+args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
+<!--<node pkg="tf" type="static_transform_publisher" name="velodyne_below_to_aft_mapped" -->
+  <!--args="0.00 0.0 0.0 0.0 0.0 0.0 /velodyne_below /aft_mapped 100" />-->
+  <node ns="slam" pkg="laser_scan_matcher" type="laser_scan_matcher_node"
+	  name="laser_scan_matcher_node">
+	  <remap from="scan" to="/scan" />
+	  <remap from="pose_with_covariance_stamped" to="laserscan/scanmatch" />
+
+	  <param name="do_compute_covariance" value="0"/>
+	  <param name="publish_pose_with_covariance" value="false"/>
+	  <param name="publish_pose_with_covariance_stamped" value="false"/>
+
+	  <param name="fixed_frame" value="icp_odom" />
+	  <param name="base_frame" value="base_link" />
+	  <param name="publish_tf" value="true" />
+	  <param name="publish_pose_stamped" value="false" />
+	  <param name="max_iterations" value="10" />
+	  <param name="use_imu" value="false" />
+	  <param name="use_odom" value="false" />
+  </node>
+<node pkg="amcl" type="amcl" name="amcl" respawn="false">
+  <rosparam>
+  base_frame_id: base_link
+  global_frame_id: map_link
+  odom_frame_id: icp_odom
+  odom_model_type: diff-corrected
+  initial_cov_aa: 0.01
+  initial_cov_xx: 0.025
+  initial_cov_yy: 0.025
+  initial_pose_a: 0 #0.176
+  initial_pose_x: 0 #1.034
+  initial_pose_y: 0 #0.336
+  laser_model_type: likelihood_field
+  odom_alpha1: 0.05
+  odom_alpha2: 0.05
+  odom_alpha3: 0.05
+  odom_alpha4: 0.05
+
+  </rosparam>
+</node>
+
+<!--<node pkg="tf" type="static_transform_publisher" name="map_link_to_icp_odom" -->
+  <!--args="0.00 0.0 0.0 0 0.0 0.0 /map_link /icp_odom 100" />-->
+<node pkg="tf" type="static_transform_publisher" name="map_to_map_link" 
+  args="0.00 0.0 0.0 -1.57 0.0 0.0 /map /map_link 100" />
+<!--<node name="map_server" pkg="map_server" type="map_server" args="$(find velo_scanmatch)/loamtest3rd.yaml">-->
+  <!--<param name="frame_id" value="map_link"/>-->
+<!--</node>-->
+<node name="map_server" pkg="map_server" type="map_server" args="$(find velo_scanmatch)/isera_red2.yaml">
+  <param name="frame_id" value="map_link"/>
+</node>
+<!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-25-41_0.bag"/>-->
+<!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-28-41_0.bag"/>-->
+<arg name="bagfile" default="/home/zy/Downloads/isera_red_lvl18_3rd_2017-08-04-15-05-15_0.bag /home/zy/Downloads/isera_red_lvl18_3rd_2017-08-04-15-07-00_1.bag"/>
+  <arg name="rviz" default="true" />
+
+  <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">
+  <remap from="velodyne_points" to="/velodyne1/velodyne_points"/>
+  <remap from="/imu/data" to="an_device/Imu"/>
+  </node>
+
+ <node pkg="velo_scanmatch" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
+  </node>
+
+  <node pkg="velo_scanmatch" type="laserMapping" name="laserMapping" output="screen">
+    <remap from="/imu/data" to="an_device/Imu"/>
+  </node>
+  <node pkg="velo_scanmatch" type="transformMaintenance" name="transformMaintenance" output="screen"/>
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/loam_velodyne_cum.rviz" />
+  </group>
+  <node type="point_cloud2_assembler" pkg="laser_assembler" name="my_assembler">
+	  <remap from="cloud" to="/velodyne_cloud_registered"/>
+    <param name="fixed_frame" type="string" value="camera_init" />
+  </node>
+  <!--<node type="periodic_snapshotter" pkg="laser_assembler" name="my_snapshotter"/>-->
+  <!--<node type="snapshotter" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>-->
+  <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>
+  <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
+   <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 $(arg bagfile) --pause" output="log"/>
+
+</launch>
