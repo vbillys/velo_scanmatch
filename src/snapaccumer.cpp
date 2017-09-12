@@ -110,7 +110,8 @@ public:
 
     // Create a publisher for the clouds that we assemble
     //pub_ = n_.advertise<sensor_msgs::PointCloud2> ("assembled_cloud2", 1);
-    pub_ = n_.advertise<pcl::PointCloud<pcl::PointXYZI> > ("assembled_cloud2", 1);
+    //pub_ = n_.advertise<pcl::PointCloud<pcl::PointXYZI> > ("assembled_cloud2", 1);
+    pub_ = n_.advertise<sensor_msgs::PointCloud2 > ("assembled_cloud2", 1);
 
     // Create the service client for calling the assembler
     client_ = n_.serviceClient<AssembleScans2>("assemble_scans2");
@@ -276,7 +277,7 @@ public:
 	PCLPointCloudXYI temp_pc;
 	// first pc is the same transform , speed up a bit
 	//if (i != history_.begin() + begin_hist_index_) 
-	if (true) 
+	if (false) 
 	{
 	  //pcl_ros::transformPointCloud(i->pc, temp_pc,  i->pose.inverse() * begin_pose);
 	  //pcl_ros::transformPointCloud(i->pc, temp_pc, begin_pose * i->pose.inverse());
@@ -289,7 +290,6 @@ public:
 	else
 	  temp_pc = PCLPointCloudXYI(i->pc);
 	accum_pc += temp_pc;
-	//pcl_ros::transformPointCloud(accum_pc, accum_pc, begin_pose_inverse);
 #if 0
 	if ( (dist_tot - i->d) <= window_size_) {
 	  // we should either found or frames are still too early
@@ -304,6 +304,13 @@ public:
 	} 
 #endif
       }
+      pcl_ros::transformPointCloud(accum_pc, accum_pc, begin_pose_inverse);
+      //latest_accum_pc = PCLPointCloudXYI(accum_pc);
+      latest_accum_pc.clear();
+      latest_accum_pc += accum_pc;
+      latest_accum_pc.header.frame_id = "camera_last";
+      //latest_accum_pc.header.stamp = e.current_real.toNSec();
+      //latest_accum_pc.header.stamp = (e.current_real - ros::Duration(timer_period_)).toNSec();
       ROS_INFO("window size: %.3f, %d", found_window_size, counter);
 
       // Need to run through one more time to inverse each frame
@@ -349,7 +356,7 @@ public:
       //accum_pc.header.frame_id = "camera_init";
       accum_pc.header.frame_id = "camera_last";
       //accum_pc.header.frame_id = "camera";
-      pub_.publish(accum_pc);
+      //pub_.publish(accum_pc);
       transferPose(begin_pose, current_last_tf_pose);
       //transferPose(begin_pose, history_.back().pose);
       //transferPose(history_.back().pose, current_last_tf_pose);
@@ -359,17 +366,39 @@ public:
       prev_tref = e.current_real;
       // store previous time and pose for next iteration
       last_tf_pose = current_tf_pose;
+      has_published_once = true;
     }
 
     // maintain happy camera_last tf happy
-    if (true) //(has_published_once)
+    //if (true) //(has_published_once)
+    if (has_published_once)
     {
       ros::Time transform_expiration = e.current_real + ros::Duration(timer_period_);
-      tf::StampedTransform tmp_tf_stamped(current_last_tf_pose,
+      tf::StampedTransform tmp_tf_stamped; //(current_last_tf_pose,
       //tf::StampedTransform tmp_tf_stamped(last_tf_pose,
-	  transform_expiration,
-	  "camera_init", "camera_last");
+	  //transform_expiration,
+	  //"camera_init", "camera_last");
+      tmp_tf_stamped.setData(current_last_tf_pose);
+      //tmp_tf_stamped.stamp_ = e.current_real;
+      //tmp_tf_stamped.stamp_ = transform_expiration;
+      tmp_tf_stamped.stamp_ = ros::Time::now();
+      tmp_tf_stamped.frame_id_ = "camera_init";
+      tmp_tf_stamped.child_frame_id_ = "camera_last";
       tf_caster_.sendTransform(tmp_tf_stamped);
+
+      if (has_moved) {
+	//latest_accum_pc.header.stamp = ros::Time::now().toNSec();
+	//latest_accum_pc.header.stamp = e.current_real.toNSec();
+	sensor_msgs::PointCloud2 accumulated;
+	pcl::toROSMsg(latest_accum_pc, accumulated);
+	//accumulated.header.stamp = e.current_real- ros::Duration(timer_period_);
+	accumulated.header.stamp = ros::Time::now();
+	//accumulated.header.stamp = e.current_real;
+	accumulated.header.frame_id = "/camera_last";
+	//pub_.publish(latest_accum_pc);
+	pub_.publish(accumulated);
+      }
+
     }
   }
 
@@ -383,6 +412,7 @@ private:
   ros::Time prev_tref;
   ros::Time latest_pc2_time;
   PCLPointCloudXYI latest_pcl_pc;
+  PCLPointCloudXYI latest_accum_pc;
   
   tf::TransformListener tf_listen_;
   tf::TransformBroadcaster tf_caster_;
