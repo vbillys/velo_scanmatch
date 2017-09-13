@@ -318,9 +318,9 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "periodic_snapshotter");
   ros::NodeHandle n;
-  ROS_INFO("Waiting for [build_cloud] to be advertised");
-  ros::service::waitForService("build_cloud");
-  ROS_INFO("Found build_cloud! Starting the snapshotter");
+  //ROS_INFO("Waiting for [build_cloud] to be advertised");
+  //ros::service::waitForService("build_cloud");
+  //ROS_INFO("Found build_cloud! Starting the snapshotter");
   PeriodicSnapshotter snapshotter;
   ros::spin();
   return 0;
