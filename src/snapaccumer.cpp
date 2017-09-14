@@ -296,7 +296,7 @@ private:
 // Carefull the camera frame id is HARDCODED
 void PeriodicSnapshotter::getCurrentCameraPose(const ros::Time & t, tf::Stamped<tf::Pose> & pose)
 {
-  tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(), tf::Vector3(0,0,0)), t, "camera");
+  tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(), tf::Vector3(0,0,0)), t, "aft_mapped");
   try
   {
     this->tf_listen_.transformPose("camera_init", ident, pose);
