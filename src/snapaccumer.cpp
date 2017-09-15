@@ -6,6 +6,7 @@
 
 // Messages
 #include "sensor_msgs/PointCloud2.h"
+#include "nav_msgs/Odometry.h"
 
 // tf
 #include "tf/transform_broadcaster.h"
@@ -92,6 +93,10 @@ public:
 
     // Create a publisher for the clouds that we assemble
     pub_ = n_.advertise<sensor_msgs::PointCloud2 > ("assembled_cloud2", 1);
+
+    // Create a publisher for odometry type
+
+    pub_odom = n_.advertise<nav_msgs::Odometry> ("/accum_odom", 5);
 
     // Create the service client for calling the assembler
     client_ = n_.serviceClient<AssembleScans2>("assemble_scans2");
@@ -244,12 +249,19 @@ public:
       tmp_tf_stamped.child_frame_id_ = "camera_last";
       tf_caster_.sendTransform(tmp_tf_stamped);
 
+      nav_msgs::Odometry odom_accum;
+
       if (has_moved) {
 	sensor_msgs::PointCloud2 accumulated;
 	pcl::toROSMsg(latest_accum_pc, accumulated);
 	accumulated.header.stamp = ros::Time::now();
 	accumulated.header.frame_id = "/camera_last";
 	pub_.publish(accumulated);
+	odom_accum.header.stamp = tmp_tf_stamped.stamp_;
+	odom_accum.header.frame_id = tmp_tf_stamped.frame_id_;
+	odom_accum.child_frame_id = tmp_tf_stamped.child_frame_id_;
+	tf::poseTFToMsg( tmp_tf_stamped, odom_accum.pose.pose);
+	pub_odom.publish(odom_accum);
       }
 
     }
@@ -290,6 +302,7 @@ private:
 
   size_t begin_hist_index_;
   bool publish_before_fullsized_;
+  ros::Publisher pub_odom;
 } ;
 
 // Give time to transform look the camera pose
