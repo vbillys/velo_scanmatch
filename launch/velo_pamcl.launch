@@ -54,8 +54,9 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
   <param name="frame_id" value="map_link"/>
 </node>
 <!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-25-41_0.bag"/>-->
-<!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-28-41_0.bag"/>-->
-<arg name="bagfile" default="/home/zy/Downloads/isera_red_lvl18_3rd_2017-08-04-15-05-15_0.bag /home/zy/Downloads/isera_red_lvl18_3rd_2017-08-04-15-07-00_1.bag"/>
+<!--<arg name="bagfile" default="/media/cwl/DATADRIVE1/robotic_data/iseraredimu_2017-08-31-16-28-41_0.bag"/>-->
+<!--<arg name="bagfile" default="/media/cwl/DATADRIVE1/robotic_data/isera_red_lvl18_3rd_2017-08-04-15-05-15_0.bag /media/cwl/DATADRIVE1/robotic_data/isera_red_lvl18_3rd_2017-08-04-15-07-00_1.bag"/>-->
+  <param name="bagfile" textfile="$(find velo_scanmatch)/launch/bagfile.txt"/>
   <arg name="rviz" default="true" />
 
   <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">
@@ -71,7 +72,7 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
   </node>
   <node pkg="velo_scanmatch" type="transformMaintenance" name="transformMaintenance" output="screen"/>
   <group if="$(arg rviz)">
-    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/loam_velodyne_cum.rviz" />
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/loam_velodyne_com.rviz" />
   </group>
   <node type="point_cloud2_assembler" pkg="laser_assembler" name="my_assembler">
 	  <remap from="cloud" to="/velodyne_cloud_registered"/>
@@ -80,7 +81,25 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
   <!--<node type="periodic_snapshotter" pkg="laser_assembler" name="my_snapshotter"/>-->
   <!--<node type="snapshotter" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>-->
   <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_velodyne_upper_view" 
+    args="-0.0 0.0 0.0 -1.57 -1.57 0.0 /emulated_base_link_for_accum /bef_emulated_base_link_for_accum "/>
+  <!--<node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_velodyne_upper_view" -->
+    <!--args="-0.0 0.0 0.0 -1.57 0.0 -1.57 /velodyne_upper_data /velodyne_upper_view "/>-->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_base_link" 
+    args="0.195 0. 0.85 0.0 0.696 0.0 /bef_emulated_base_link_for_accum /velodyne_upper_data" />
+  <!--<node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_base_link" -->
+    <!--args="-0.0 0.85 0.195 0.0 0.0 0.696 /emulated_base_link_for_accum /velodyne_upper_data" />-->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_last_to_base_link" 
+    args="-0.0 -0.45 -0.12 0 0.0 0.0 /camera_last /emulated_base_link_for_accum" />
+  <node type="velosync" pkg="icp_test" name="velosync" output="screen">
+    <param name="combined_frame" value="emulated_base_link_for_accum"/>
+    <param name="base1_frame" value="emulated_base_link_for_accum"/>
+    <param name="base2_frame" value="emulated_base_link_for_accum"/>
+    <param name="velo1_frame" value="camera_last"/>
+    <param name="velo2_frame" value="velodyne_upper_data"/>
+    <param name="velo1_topic" value="assembled_cloud2"/>
+  </node>
   <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
-   <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 $(arg bagfile) --pause" output="log"/>
+  <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 --pause " launch-prefix="bash -c '$* `cat $(find velo_scanmatch)/launch/bagfile.txt`' --" output="log"/>
 
 </launch>
