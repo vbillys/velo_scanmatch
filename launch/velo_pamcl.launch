@@ -80,7 +80,9 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
   </node>
   <!--<node type="periodic_snapshotter" pkg="laser_assembler" name="my_snapshotter"/>-->
   <!--<node type="snapshotter" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>-->
-  <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen"/>
+  <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen">
+    <remap from="/velodyne_cloud_registered" to="/combined_cloud"/>
+  </node>
   <node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_velodyne_upper_view" 
     args="-0.0 0.0 0.0 -1.57 -1.57 0.0 /emulated_base_link_for_accum /bef_emulated_base_link_for_accum "/>
   <!--<node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_velodyne_upper_view" -->
@@ -90,14 +92,17 @@ args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
   <!--<node pkg="tf2_ros" type="static_transform_publisher" name="velodyne_upper_data_to_base_link" -->
     <!--args="-0.0 0.85 0.195 0.0 0.0 0.696 /emulated_base_link_for_accum /velodyne_upper_data" />-->
   <node pkg="tf2_ros" type="static_transform_publisher" name="camera_last_to_base_link" 
-    args="-0.0 -0.45 -0.12 0 0.0 0.0 /camera_last /emulated_base_link_for_accum" />
+    args="-0.0 -0.45 -0.12 0 0.0 0.0 /aft_mapped /emulated_base_link_for_accum" />
   <node type="velosync" pkg="icp_test" name="velosync" output="screen">
-    <param name="combined_frame" value="emulated_base_link_for_accum"/>
+    <param name="combined_frame" value="camera_init"/>
     <param name="base1_frame" value="emulated_base_link_for_accum"/>
+    <!--<param name="base1_frame" value="camera_init"/>-->
     <param name="base2_frame" value="emulated_base_link_for_accum"/>
-    <param name="velo1_frame" value="camera_last"/>
+    <param name="velo1_frame" value="aft_mapped"/>
+    <!--<param name="velo1_frame" value="camera_init"/>-->
     <param name="velo2_frame" value="velodyne_upper_data"/>
-    <param name="velo1_topic" value="assembled_cloud2"/>
+    <param name="velo1_topic" value="velodyne_cloud_registered"/>
+    <param name="velo2_comp_odom" value="aft_mapped_to_init"/>
   </node>
   <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
   <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 --pause " launch-prefix="bash -c '$* `cat $(find velo_scanmatch)/launch/bagfile.txt`' --" output="log"/>
