@@ -75,7 +75,7 @@ class PeriodicSnapshotter
   }
 public:
 
-  PeriodicSnapshotter(const double & window_size=1.5, const double & step_size=0.1, const double & timer_period=0.1, bool publish_before_fullsized=false) : window_size_(window_size), step_size_(step_size), timer_period_(timer_period), publish_before_fullsized_(publish_before_fullsized)
+  PeriodicSnapshotter(const double & window_size=3.0, const double & step_size=0.2, const double & publish_per_dist=0.5, const double & timer_period=0.1, bool publish_before_fullsized=false) : window_size_(window_size), step_size_(step_size), publish_per_dist_(publish_per_dist), timer_period_(timer_period), publish_before_fullsized_(publish_before_fullsized)
   {
     // indicate that we are waiting for first pc2 msg
     waiting_for_pc2 = true;
@@ -84,6 +84,7 @@ public:
     dist_tot = 0;
     dist_accum = 0;
     last_dist_tot = 0;
+    dist_publish = 0;
 
     // begin index, we cache to faster
     begin_hist_index_ = 0;
@@ -174,6 +175,7 @@ public:
     last_dist_tot = dist_tot;
     dist_tot +=dist;
     dist_accum +=dist;
+    dist_publish += dist;
 
     if ( step_size_ <= dist_accum ) 
     {
@@ -204,6 +206,21 @@ public:
 	has_moved = false;
 	if (dist_tot * 1.5 > window_size_) {
 	  has_moved = true;
+	}
+      }
+
+      // we add another publisher distance accumulator
+      if (has_moved)
+      {
+	// recheck if really we should publish
+	if (dist_publish < publish_per_dist_)
+	{
+	  has_moved = false;
+	}
+	else
+	{
+	  // well, reset if so
+	  dist_publish = 0;
 	}
       }
     }
@@ -289,7 +306,7 @@ private:
   double y_prev;
 
   bool waiting_for_pc2;
-  double dist_tot, dist_accum;
+  double dist_tot, dist_accum, dist_publish;
   double last_dist_tot;
   bool has_published_once;
 
@@ -298,6 +315,7 @@ private:
   boost::mutex history_mutex_;
   double window_size_;
   double step_size_;
+  double publish_per_dist_;
   double timer_period_;
 
   size_t begin_hist_index_;
@@ -330,11 +348,19 @@ using namespace laser_assembler ;
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "periodic_snapshotter");
-  ros::NodeHandle n;
+  ros::NodeHandle n, pnh("~");
   //ROS_INFO("Waiting for [build_cloud] to be advertised");
   //ros::service::waitForService("build_cloud");
   //ROS_INFO("Found build_cloud! Starting the snapshotter");
-  PeriodicSnapshotter snapshotter;
+  // parameterize
+  double timer_period, step_size, publish_per_dist, window_size;
+  bool publish_before_window_filled;
+  pnh.param("timer_period", timer_period, 0.1);
+  pnh.param("window_size", window_size, 3.0);
+  pnh.param("step_size", step_size, 0.2);
+  pnh.param("publish_per_dist", publish_per_dist, 0.5);
+  pnh.param("publish_before_window_filled", publish_before_window_filled, false);
+  PeriodicSnapshotter snapshotter(window_size, step_size, publish_per_dist, timer_period, publish_before_window_filled);
   ros::spin();
   return 0;
 }

@@ -30,11 +30,13 @@
   </group>
 
   <param name="oputputPath" value="/home/cwl/.ros/velo_export/"/>
-  <node type="snapsaver" pkg="velo_scanmatch" name="myexport" output="screen">
+  <node if="1" type="snapsaver" pkg="velo_scanmatch" name="myexport" output="screen">
     <remap from="/aggregator/cloud" to="/assembled_cloud2"/>
   </node>
   <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen">
     <!--<remap from="/velodyne_cloud_registered" to="/combined_cloud"/>-->
+    <param name="step_size" value="0.2"/>
+    <param name="publish_per_dist" value="0.5"/>
   </node>
 
   <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
