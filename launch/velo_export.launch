@@ -1,0 +1,44 @@
+<launch>
+
+  <param name="/use_sim_time" value="true"/>
+  <node pkg="tf" type="static_transform_publisher" name="map_to_camera_init" 
+    args="0.00 0.0 0.0 0.0 0.0 1.57 /map /camera_init 100" />
+<node pkg="tf" type="static_transform_publisher" name="map_to_map_link" 
+  args="0.00 0.0 0.0 -1.57 0.0 0.0 /map /map_link 100" />
+<!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-25-41_0.bag"/>-->
+<!--<arg name="bagfile" default="/media/cwl/DATADRIVE1/robotic_data/iseraredimu_2017-08-31-16-28-41_0.bag"/>-->
+<!--<arg name="bagfile" default="/media/cwl/DATADRIVE1/robotic_data/isera_red_lvl18_3rd_2017-08-04-15-05-15_0.bag /media/cwl/DATADRIVE1/robotic_data/isera_red_lvl18_3rd_2017-08-04-15-07-00_1.bag"/>-->
+  <!--<param name="bagfile" textfile="$(find velo_scanmatch)/launch/bagfile.txt"/>-->
+
+  <arg name="rviz" default="true" />
+
+  <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">
+    <remap from="velodyne_points" to="/velodyne1/velodyne_points"/>
+    <remap from="/imu/data" to="an_device/Imu"/>
+  </node>
+
+  <node pkg="velo_scanmatch" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
+  </node>
+
+  <node pkg="velo_scanmatch" type="laserMapping" name="laserMapping" output="screen">
+    <remap from="/imu/data" to="an_device/Imu"/>
+  </node>
+  <node pkg="velo_scanmatch" type="transformMaintenance" name="transformMaintenance" output="screen"/>
+
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/loam_velodyne_cum.rviz" />
+  </group>
+
+  <param name="oputputPath" value="/home/cwl/.ros/velo_export/"/>
+  <node type="snapsaver" pkg="velo_scanmatch" name="myexport" output="screen">
+    <remap from="/aggregator/cloud" to="/assembled_cloud2"/>
+  </node>
+  <node type="snapaccumer" pkg="velo_scanmatch" name="my_snapshotter" output="screen">
+    <!--<remap from="/velodyne_cloud_registered" to="/combined_cloud"/>-->
+  </node>
+
+  <!--<node if="1" name="spatialconverter" pkg="velo_scanmatch" type="spatial_imu_to_euler.py" output="log"/>-->
+  <node if="1" name="rplay_$(anon rplay)" pkg="rosbag" type="play" args="--clock -d 2 --pause " launch-prefix="bash -c '$* `cat $(find velo_scanmatch)/launch/bagfile.txt`' --" output="log"/>
+
+</launch>
+

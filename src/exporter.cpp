@@ -23,7 +23,8 @@ using namespace boost::posix_time;
 data_model model;
 ros::Publisher pub;
 tf::TransformListener* tflistener;
-std::string rootFrame = "odom";
+//std::string rootFrame = "NEVER_USED???";
+std::string target="camera_init";
 int scanNo =0;
 std::string outputModelPath="";
 //FUNCTIONS
@@ -57,10 +58,9 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& inputMsg)
   ROS_INFO("recived pointcloud, processing");
   ROS_INFO("frame: %s", inputMsg->header.frame_id.c_str());
 
-  std::string target="odom";
   tf::StampedTransform transform;
   bool isOk = tflistener->waitForTransform(target, inputMsg->header.frame_id,inputMsg->header.stamp, ros::Duration(2.5));
-  tflistener->lookupTransform("odom", inputMsg->header.frame_id,inputMsg->header.stamp, transform );
+  tflistener->lookupTransform(target, inputMsg->header.frame_id,inputMsg->header.stamp, transform );
   Eigen::Matrix4f matrixf;
   pcl_ros::transformAsMatrix(transform, matrixf);
   if (msg.fields.size()>=3 )
