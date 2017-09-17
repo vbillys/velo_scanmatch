@@ -21,6 +21,7 @@ find_package(OpenCV REQUIRED)
 
 include_directories(
   include
+  include/dataFramework
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
@@ -51,3 +52,5 @@ add_executable(snapaccumer src/snapaccumer.cpp)
 target_link_libraries(snapaccumer ${catkin_LIBRARIES})
 
 
+add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
+target_link_libraries(snapsaver ${catkin_LIBRARIES} )
