@@ -15,6 +15,8 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+bool g_force_SE2;
+
 const float scanPeriod = 0.1;
 
 const int stackFrameNum = 1;
@@ -118,8 +120,11 @@ void transformAssociateToMap()
             - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
             - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
             - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
-  transformTobeMapped[0] = 0;//-asin(srx);
-  transformTobeMapped[0] = -asin(srx);
+  if (g_force_SE2) {
+    transformTobeMapped[0] = 0;//-asin(srx);
+  }else {
+    transformTobeMapped[0] = -asin(srx);
+  }
 
   float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
                - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
@@ -148,10 +153,16 @@ void transformAssociateToMap()
                + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
                - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
                - calx*calz*cblx*sblz);
-  transformTobeMapped[2] = 0;//atan2(srzcrx / cos(transformTobeMapped[0]), 
-                                 //crzcrx / cos(transformTobeMapped[0]));
-  transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
-  crzcrx / cos(transformTobeMapped[0]));
+  if (g_force_SE2) {
+    transformTobeMapped[2] = 0;//atan2(srzcrx / cos(transformTobeMapped[0]), 
+    //crzcrx / cos(transformTobeMapped[0]));
+  }
+  else
+  {
+    transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
+	crzcrx / cos(transformTobeMapped[0]));
+  }
+
 
   x1 = cos(transformTobeMapped[2]) * transformIncre[3] - sin(transformTobeMapped[2]) * transformIncre[4];
   y1 = sin(transformTobeMapped[2]) * transformIncre[3] + cos(transformTobeMapped[2]) * transformIncre[4];
@@ -163,8 +174,13 @@ void transformAssociateToMap()
 
   transformTobeMapped[3] = transformAftMapped[3] 
                          - (cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2);
-  transformTobeMapped[4] = 0;//transformAftMapped[4] - y2;
-  transformTobeMapped[4] = transformAftMapped[4] - y2;
+  if (g_force_SE2) {
+    transformTobeMapped[4] = 0;//transformAftMapped[4] - y2;
+  }
+  else
+  {
+    transformTobeMapped[4] = transformAftMapped[4] - y2;
+  }
   transformTobeMapped[5] = transformAftMapped[5] 
                          - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
 }
@@ -310,7 +326,8 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserMapping");
-  ros::NodeHandle nh;
+  ros::NodeHandle nh, pnh("~");
+  pnh.param("force_SE2", g_force_SE2, false);
 
   ros::Subscriber subLaserCloudCornerLast = nh.subscribe<sensor_msgs::PointCloud2>
                                             ("/laser_cloud_corner_last", 2, laserCloudCornerLastHandler);
@@ -926,14 +943,29 @@ int main(int argc, char** argv)
               matX = matP * matX2;
             }
 
-            transformTobeMapped[0] += 0;//matX.at<float>(0, 0);
-	    transformTobeMapped[0] += matX.at<float>(0, 0);
+	    if (g_force_SE2) {
+	      transformTobeMapped[0] += 0;//matX.at<float>(0, 0);
+	    }
+	    else
+	    {
+	      transformTobeMapped[0] += matX.at<float>(0, 0);
+	    }
             transformTobeMapped[1] += matX.at<float>(1, 0);
-            transformTobeMapped[2] += 0;//matX.at<float>(2, 0);
-	    transformTobeMapped[2] += matX.at<float>(2, 0);
+	    if (g_force_SE2) {
+	      transformTobeMapped[2] += 0;//matX.at<float>(2, 0);
+	    }
+	    else
+	    {
+	      transformTobeMapped[2] += matX.at<float>(2, 0);
+	    }
             transformTobeMapped[3] += matX.at<float>(3, 0);
-            transformTobeMapped[4] += 0;//matX.at<float>(4, 0);
-	    transformTobeMapped[4] += matX.at<float>(4, 0);
+	    if (g_force_SE2) {
+	      transformTobeMapped[4] += 0;//matX.at<float>(4, 0);
+	    }
+	    else
+	    {
+	      transformTobeMapped[4] += matX.at<float>(4, 0);
+	    }
             transformTobeMapped[5] += matX.at<float>(5, 0);
 
             float deltaR = sqrt(

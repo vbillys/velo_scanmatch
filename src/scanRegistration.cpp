@@ -430,7 +430,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   pcl::PointCloud<PointType> surfPointsLessFlat;
 
   for (int i = 0; i < N_SCANS; i++) {
-    if (i == 11 || i == 10) continue;
+    //if (i == 11 || i == 10) continue;
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>);
     for (int j = 0; j < 6; j++) {
       int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;

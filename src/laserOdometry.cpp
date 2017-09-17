@@ -15,6 +15,8 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+bool g_force_SE2;
+
 const float scanPeriod = 0.1;
 
 const int skipFrameNum = 1;
@@ -326,7 +328,8 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserOdometry");
-  ros::NodeHandle nh;
+  ros::NodeHandle nh, pnh("~");
+  pnh.param("force_SE2", g_force_SE2, false);
 
   ros::Subscriber subCornerPointsSharp = nh.subscribe<sensor_msgs::PointCloud2>
                                          ("/laser_cloud_sharp", 2, laserCloudSharpHandler);
@@ -429,10 +432,10 @@ int main(int argc, char** argv)
       coeffSel->clear();
 
       transform[3] -= 0;//imuVeloFromStartX * scanPeriod;
-      transform[3] -= imuVeloFromStartX * scanPeriod;
+      transform[3] -= g_force_SE2 ? imuVeloFromStartX * scanPeriod : 0;
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= 0;//imuVeloFromStartZ * scanPeriod;
-      transform[5] -= imuVeloFromStartZ * scanPeriod;
+      transform[5] -= g_force_SE2 ? imuVeloFromStartZ * scanPeriod : 0;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -766,13 +769,13 @@ int main(int argc, char** argv)
           }
 
           transform[0] += 0;//matX.at<float>(0, 0);
-	  transform[0] += matX.at<float>(0, 0);
+	  transform[0] += g_force_SE2 ? matX.at<float>(0, 0) : 0;
           transform[1] += matX.at<float>(1, 0);
           transform[2] += 0;//matX.at<float>(2, 0);
-	  transform[2] += matX.at<float>(2, 0);
+	  transform[2] += g_force_SE2 ? matX.at<float>(2, 0) : 0;
           transform[3] += matX.at<float>(3, 0);
           transform[4] += 0;//matX.at<float>(4, 0);
-	  transform[4] += matX.at<float>(4, 0);
+	  transform[4] += g_force_SE2 ? matX.at<float>(4, 0) : 0;
           transform[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){
