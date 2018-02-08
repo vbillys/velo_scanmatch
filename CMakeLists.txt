@@ -19,6 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 
+#find_package(PkgConfig REQUIRED)
+
 include_directories(
   include
   include/dataFramework
@@ -48,9 +50,17 @@ target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} 
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
-add_executable(snapaccumer src/snapaccumer.cpp)
-target_link_libraries(snapaccumer ${catkin_LIBRARIES})
+add_library(trajproto src/trajectory.pb.cc)
+set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
+#set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
+
+link_directories("/home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/")
+add_executable(snapaccumer src/snapaccumer.cpp )
+#add_executable(snapaccumer src/transform.pb.cc src/snapaccumer.cpp )
+set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
+#set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
+target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf)
 
 
-add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
-target_link_libraries(snapsaver ${catkin_LIBRARIES} )
+#add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
+#target_link_libraries(snapsaver ${catkin_LIBRARIES} )

@@ -1,6 +1,9 @@
 #include <cstdio>
 #include <ros/ros.h>
 
+// testing protobuf
+#include "trajectory.pb.h"
+
 // Services
 #include "laser_assembler/AssembleScans2.h"
 
