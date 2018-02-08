@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 2.8.3)
 project(velo_scanmatch)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
@@ -55,7 +58,7 @@ set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Document
 #set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 
 link_directories("/home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/")
-add_executable(snapaccumer src/snapaccumer.cpp )
+add_executable(snapaccumer src/snapaccumer.cpp src/proto_stream.cc)
 #add_executable(snapaccumer src/transform.pb.cc src/snapaccumer.cpp )
 set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
