@@ -7,7 +7,7 @@
 #include "proto_stream_interface.h"
 #include "google/protobuf/message.h"
 
-namespace carto {
+namespace cartographer {
 namespace io {
 
 // A simple writer of a compressed sequence of protocol buffer messages to a

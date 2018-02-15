@@ -9,7 +9,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 
-namespace carto {
+namespace cartographer {
 
 using int8 = int8_t;
 using int16 = int16_t;

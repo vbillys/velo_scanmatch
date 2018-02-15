@@ -1,6 +1,6 @@
 #include "proto_stream.h"
 
-namespace carto {
+namespace cartographer {
 namespace io {
 
 namespace {

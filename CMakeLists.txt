@@ -21,12 +21,18 @@ find_package(catkin REQUIRED COMPONENTS
 #find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+  ${PROJECT_SOURCE_DIR}/src )
+find_package(LuaGoogle REQUIRED)
+find_package(Ceres REQUIRED HINTS "/home/agoy/cs_ws/devel_isolated/ceres-solver/lib/cmake/Ceres")
 
 #find_package(PkgConfig REQUIRED)
 
 include_directories(
   include
   include/dataFramework
+        ${LUA_INCLUDE_DIR}
+	${CERES_INCLUDE_DIRS}
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
@@ -53,7 +59,7 @@ target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} 
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
-add_library(trajproto src/trajectory.pb.cc)
+add_library(trajproto src/trajectory.pb.cc src/transform_interpolation_buffer.cc)
 set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 
@@ -62,7 +68,7 @@ add_executable(snapaccumer src/snapaccumer.cpp src/proto_stream.cc)
 #add_executable(snapaccumer src/transform.pb.cc src/snapaccumer.cpp )
 set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
-target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf)
+target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES})
 
 
 #add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)

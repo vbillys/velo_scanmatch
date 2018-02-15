@@ -19,7 +19,7 @@ bool g_force_SE2;
 
 const float scanPeriod = 0.1;
 
-const int skipFrameNum = 1;
+const int skipFrameNum = 0;//1;
 bool systemInited = false;
 
 double timeCornerPointsSharp = 0;
@@ -779,7 +779,7 @@ int main(int argc, char** argv)
           transform[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){
-            if(isnan(transform[i]))
+            if(std::isnan(transform[i]))
               transform[i]=0;
           }
           float deltaR = sqrt(

@@ -4,7 +4,7 @@
 #include "port.h"
 #include "google/protobuf/message.h"
 
-namespace carto {
+namespace cartographer {
 namespace io {
 
 // A writer for writing proto messages to a pbstream.
