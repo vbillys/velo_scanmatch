@@ -59,16 +59,16 @@ target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} 
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
-add_library(trajproto src/trajectory.pb.cc src/transform_interpolation_buffer.cc)
+add_library(trajproto src/trajectory.pb.cc src/transform.pb.cc)
 set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 
 link_directories("/home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/")
-add_executable(snapaccumer src/snapaccumer.cpp src/proto_stream.cc)
+add_executable(snapaccumer src/snapaccumer.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc)
 #add_executable(snapaccumer src/transform.pb.cc src/snapaccumer.cpp )
 set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
-target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES})
+target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES} ${LUA_LIBRARIES})
 
 
 #add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
