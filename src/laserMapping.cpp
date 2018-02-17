@@ -15,6 +15,12 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+#include "trajectory.pb.h"
+#include "proto_stream.h"
+#include "time_conversion.h"
+#include "msg_conversion.h"
+#include "transform.h"
+
 bool g_force_SE2;
 
 const float scanPeriod = 0.1;
@@ -323,6 +329,8 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   imuPitch[imuPointerLast] = pitch;
 }
 
+cartographer::mapping::proto::Trajectory g_traj;
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserMapping");
@@ -357,6 +365,7 @@ int main(int argc, char** argv)
   tf::TransformBroadcaster tfBroadcaster;
   tf::StampedTransform aftMappedTrans;
   aftMappedTrans.frame_id_ = "/camera_init";
+  //aftMappedTrans.frame_id_ = "/map";
   aftMappedTrans.child_frame_id_ = "/aft_mapped";
 
   std::vector<int> pointSearchInd;
@@ -1096,9 +1105,19 @@ int main(int argc, char** argv)
         pubOdomAftMapped.publish(odomAftMapped);
 
         aftMappedTrans.stamp_ = ros::Time().fromSec(timeLaserOdometry);
-        aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-        aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], 
-                                             transformAftMapped[4], transformAftMapped[5]));
+	aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
+	aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], 
+					     transformAftMapped[4], transformAftMapped[5]));
+	tf::Transform pose_mapped (tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w), tf::Vector3(transformAftMapped[3], transformAftMapped[4], transformAftMapped[5]));
+	auto trans_corrected = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)) * pose_mapped;
+	//auto quat_corrected = tf::createQuaternionFromRPY(1.57,0,1.57)*tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w);
+	auto quat_corrected = trans_corrected.getRotation();
+	auto pos_corrected = trans_corrected.getOrigin();
+	//aftMappedTrans.setRotation(tf::Quaternion( geoQuat.x, -geoQuat.y, -geoQuat.z, geoQuat.w));
+	//aftMappedTrans.setRotation(quat_corrected);
+	//aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[5], 
+	      //transformAftMapped[3], transformAftMapped[4]));
+	//aftMappedTrans.setOrigin(pos_corrected);
         tfBroadcaster.sendTransform(aftMappedTrans);
         printf("check aftMapped: ");
         for (int i = 0; i < 6; i++) printf(" %.3f", transformAftMapped[i]);
@@ -1107,12 +1126,18 @@ int main(int argc, char** argv)
 	for (int i = 0; i < 6; i++) printf(" %.3f", transformTobeMapped[i]);
 	printf("\n");
 
+	// adding to protobuf messages
+	auto new_node = g_traj.add_node();
+	new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odomAftMapped.header.stamp)));
+	//cartographer::transform::ToProto(cartographer_ros::ToRigid3d(aftMappedTrans));
+	cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.x(), quat_corrected.y(), quat_corrected.z(), quat_corrected.w())));
       }
     }
 
     status = ros::ok();
     rate.sleep();
   }
+  ROS_WARN ("end of loop for laserMapping, time to save");
 
   return 0;
 }

@@ -50,8 +50,8 @@ target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Op
 add_executable(laserOdometry src/laserOdometry.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
-add_executable(laserMapping src/laserMapping.cpp)
-target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_executable(laserMapping src/laserMapping.cpp src/proto_stream.cc src/time_conversion.cc src/time.cc src/msg_conversion.cc src/transform.cc)
+#target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(transformMaintenance src/transformMaintenance.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
@@ -59,7 +59,7 @@ target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} 
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
-add_library(trajproto src/trajectory.pb.cc src/transform.pb.cc)
+add_library(trajproto src/trajectory.pb.cc src/transform.pb.cc src/sensor.pb.cc)
 set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 
@@ -70,6 +70,7 @@ set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Docume
 #set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES} ${LUA_LIBRARIES})
 
+target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_LIBRARIES} ${OpenCV_LIBS} glog)
 
 #add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
 #target_link_libraries(snapsaver ${catkin_LIBRARIES} )
