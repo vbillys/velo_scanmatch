@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   pcl_ros
   pcl_conversions
+  message_generation
   tf)
 
 #find_package(Eigen3 REQUIRED)
@@ -36,6 +37,16 @@ include_directories(
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
+
+add_service_files(
+	FILES
+	SaveTraj.srv
+	)
+
+generate_messages(
+	DEPENDENCIES
+	std_msgs
+)
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs

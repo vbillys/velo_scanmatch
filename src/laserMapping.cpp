@@ -21,6 +21,8 @@
 #include "msg_conversion.h"
 #include "transform.h"
 
+#include "velo_scanmatch/SaveTraj.h"
+
 bool g_force_SE2;
 
 const float scanPeriod = 0.1;
@@ -331,6 +333,18 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 
 cartographer::mapping::proto::Trajectory g_traj;
 
+bool ServeSaveTraj(velo_scanmatch::SaveTraj::Request  &req,
+		   velo_scanmatch::SaveTraj::Response &res)
+{
+
+  ROS_WARN("service called");
+  cartographer::io::ProtoStreamWriter writer(req.filename);
+  writer.WriteProto(g_traj);
+  writer.Close();
+  ROS_WARN("trajectory saved as: %s", req.filename.c_str());
+  return true;
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserMapping");
@@ -358,6 +372,9 @@ int main(int argc, char** argv)
                                         ("/velodyne_cloud_registered", 2);
 
   ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 5);
+
+  ros::ServiceServer save_traj_srv = nh.advertiseService("save_traj", ServeSaveTraj);
+
   nav_msgs::Odometry odomAftMapped;
   odomAftMapped.header.frame_id = "/camera_init";
   odomAftMapped.child_frame_id = "/aft_mapped";
@@ -1131,6 +1148,7 @@ int main(int argc, char** argv)
 	new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odomAftMapped.header.stamp)));
 	//cartographer::transform::ToProto(cartographer_ros::ToRigid3d(aftMappedTrans));
 	cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.x(), quat_corrected.y(), quat_corrected.z(), quat_corrected.w())));
+	ROS_INFO("node size: %d", g_traj.node_size());
       }
     }
 
