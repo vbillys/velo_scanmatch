@@ -85,3 +85,6 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_
 
 #add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
 #target_link_libraries(snapsaver ${catkin_LIBRARIES} )
+
+add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc)
+target_link_libraries(traj_process trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
