@@ -381,9 +381,10 @@ int main(int argc, char** argv)
 
   tf::TransformBroadcaster tfBroadcaster;
   tf::StampedTransform aftMappedTrans;
-  aftMappedTrans.frame_id_ = "/camera_init";
-  //aftMappedTrans.frame_id_ = "/map";
-  aftMappedTrans.child_frame_id_ = "/aft_mapped";
+  //aftMappedTrans.frame_id_ = "/camera_init";
+  aftMappedTrans.frame_id_ = "/map";
+  //aftMappedTrans.child_frame_id_ = "/aft_mapped";
+  aftMappedTrans.child_frame_id_ = "/velodyne_left";
 
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
@@ -421,6 +422,9 @@ int main(int argc, char** argv)
   int mapFrameCount = mapFrameNum - 1;
   ros::Rate rate(100);
   bool status = ros::ok();
+
+  std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds;
+
   while (status) {
     ros::spinOnce();
 
@@ -1126,15 +1130,17 @@ int main(int argc, char** argv)
 	aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], 
 					     transformAftMapped[4], transformAftMapped[5]));
 	tf::Transform pose_mapped (tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w), tf::Vector3(transformAftMapped[3], transformAftMapped[4], transformAftMapped[5]));
-	auto trans_corrected = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)) * pose_mapped;
+	auto trans_corrected = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)) * pose_mapped * tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse() ;
 	//auto quat_corrected = tf::createQuaternionFromRPY(1.57,0,1.57)*tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w);
 	auto quat_corrected = trans_corrected.getRotation();
 	auto pos_corrected = trans_corrected.getOrigin();
+	//auto quat_corrected = pose_mapped.getRotation();
+	//auto pos_corrected  = pose_mapped.getOrigin();
 	//aftMappedTrans.setRotation(tf::Quaternion( geoQuat.x, -geoQuat.y, -geoQuat.z, geoQuat.w));
-	//aftMappedTrans.setRotation(quat_corrected);
+	aftMappedTrans.setRotation(quat_corrected);
 	//aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[5], 
 	      //transformAftMapped[3], transformAftMapped[4]));
-	//aftMappedTrans.setOrigin(pos_corrected);
+	aftMappedTrans.setOrigin(pos_corrected);
         tfBroadcaster.sendTransform(aftMappedTrans);
         printf("check aftMapped: ");
         for (int i = 0; i < 6; i++) printf(" %.3f", transformAftMapped[i]);
@@ -1147,7 +1153,10 @@ int main(int argc, char** argv)
 	auto new_node = g_traj.add_node();
 	new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odomAftMapped.header.stamp)));
 	//cartographer::transform::ToProto(cartographer_ros::ToRigid3d(aftMappedTrans));
-	cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.x(), quat_corrected.y(), quat_corrected.z(), quat_corrected.w())));
+	;
+	proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.w(), quat_corrected.x(), quat_corrected.y(), quat_corrected.z()))));
+	cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+	new_node->set_allocated_pose(t_proto_rigid3d);
 	ROS_INFO("node size: %d", g_traj.node_size());
       }
     }

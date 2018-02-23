@@ -67,7 +67,9 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "trajProcess");
   ros::NodeHandle nh, pnh("~");
   bool b_opt_publish_pc;
+  std::string pc_topic;
   pnh.param("publish_pc", b_opt_publish_pc, false);
+  pnh.param<std::string>("pc_topic"  , pc_topic, "/velodyne_right/velodyne_points");
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
 
@@ -90,7 +92,7 @@ int main(int argc, char** argv) {
   ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
 
   std::vector<std::string> topics;
-  topics.push_back(std::string("/velodyne_left/velodyne_points"));
+  topics.push_back(pc_topic);
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   std::vector<tf::Pose> odometry_poses;
@@ -136,13 +138,19 @@ int main(int argc, char** argv) {
   }
   bag.close();
 
+  //const tf::Transform correction_after  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
+  const tf::Transform correction_after  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
+  const tf::Transform correction_before = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
 
   int index = 0; PointCloud total_pointcloud;
   for (auto curr_pc : pcl_pointclouds)
   {
      PointCloud transformed_pointcloud;
      PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
-     pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
+     pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses[index]);
+     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
+     // use below if need to correct...
+     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
      total_pointcloud += transformed_pointcloud;
      index++;
   }
