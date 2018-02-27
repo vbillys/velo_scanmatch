@@ -60,12 +60,15 @@ class Accumulator
   public:
     std::vector<VPointCloud> * GetVectorClouds(){ return &pcl_pointclouds_;};
     std::vector<tf::Pose> * GetOdometryPoses(){ return &odometry_poses_;};
-    PointCloud * GetTotalPointCloud(){ return &total_pointcloud_;};
+    PointCloud  * GetTotalPointCloud() { return &total_pointcloud_;};
+    VPointCloud * GetTotalVPointCloud(){ return &total_vpointcloud_;};
     void AccumulateWithTransform(const tf::Transform & transform);
+    void AccumulateIRWithTransform(const tf::Transform & transform);
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
     PointCloud total_pointcloud_;
+    VPointCloud total_vpointcloud_;
     const tf::Transform correction_after_  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
     const tf::Transform correction_before_ = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
 };
@@ -88,6 +91,26 @@ void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
   ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_.size());
 }
 
+void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
+{
+  int index = 0; total_vpointcloud_.clear();
+  for (auto curr_pc : pcl_pointclouds_)
+  {
+    PointCloud transformed_pointcloud;
+    PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
+    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index]);
+
+    VPointCloud transformed_vpointcloud(curr_pc);
+    pcl::copyPointCloud(transformed_pointcloud, transformed_vpointcloud);
+
+    //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
+    // use below if need to correct...
+    //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
+    total_vpointcloud_ += transformed_vpointcloud;
+    index++;
+  }
+}
+
 int main(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
   google::InitGoogleLogging(argv[0]);
@@ -99,10 +122,11 @@ int main(int argc, char** argv) {
 
   ros::init(argc, argv, "trajProcess");
   ros::NodeHandle nh, pnh("~");
-  bool b_opt_publish_pc;
+  bool b_opt_publish_pc, b_opt_calibrate;
   std::string pc_topic;
   pnh.param("publish_pc", b_opt_publish_pc, false);
   pnh.param<std::string>("pc_topic"  , pc_topic, "/velodyne_right/velodyne_points");
+  pnh.param("calibrate", b_opt_calibrate, false);
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
 
@@ -201,16 +225,20 @@ int main(int argc, char** argv) {
   //total_pointcloud.header.frame_id = "map";
   //total_pointcloud.header.stamp    = ros::Time::now().toNSec();
 
-  accumulator.AccumulateWithTransform(tf::Transform());
 
   if (b_opt_publish_pc)
   {
-    accumulator.GetTotalPointCloud()->header.frame_id = "map";
-    accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
-    pc_pub.publish(*accumulator.GetTotalPointCloud());
+    //accumulator.AccumulateWithTransform(tf::Transform());
+    //accumulator.GetTotalPointCloud()->header.frame_id = "map";
+    //accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
+    //pc_pub.publish(*accumulator.GetTotalPointCloud());
+    accumulator.AccumulateIRWithTransform(tf::Transform());
+    accumulator.GetTotalVPointCloud()->header.frame_id = "map";
+    accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
+    pc_pub.publish(*accumulator.GetTotalVPointCloud());
     ros::spin();
   }
-  else
+  else if (b_opt_calibrate)
   {
   }
 }
