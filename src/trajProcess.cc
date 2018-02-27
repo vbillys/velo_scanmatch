@@ -45,9 +45,19 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
+
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/search/search.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/normal_space.h>
+#include <pcl/filters/random_sample.h>
+
 typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 
 DEFINE_string(traj_filename, "",
     "Proto stream file containing the pose graph.");
@@ -58,12 +68,16 @@ DEFINE_string(bag_filenames, "",
 class Accumulator
 {
   public:
+    Accumulator(){
+      tree_ = pcl::search::KdTree<pcl::PointXYZ>::Ptr(new pcl::search::KdTree<pcl::PointXYZ> ());
+    }
     std::vector<VPointCloud> * GetVectorClouds(){ return &pcl_pointclouds_;};
     std::vector<tf::Pose> * GetOdometryPoses(){ return &odometry_poses_;};
     PointCloud  * GetTotalPointCloud() { return &total_pointcloud_;};
     VPointCloud * GetTotalVPointCloud(){ return &total_vpointcloud_;};
     void AccumulateWithTransform(const tf::Transform & transform);
     void AccumulateIRWithTransform(const tf::Transform & transform);
+    float J_calc_wTf(const tf::Transform & transform);
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
@@ -71,7 +85,73 @@ class Accumulator
     VPointCloud total_vpointcloud_;
     const tf::Transform correction_after_  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
     const tf::Transform correction_before_ = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
+
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree_;
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne_;
+
 };
+
+float Accumulator::J_calc_wTf(const tf::Transform & transform)
+{
+  //std::cout<<"normal calcualtion begin"<<std::endl;
+  //ne_.setRadiusSearch (0.1);
+  //ne_.compute (*cloud_normals);
+  //std::cout<<"normal calcualtion end"<<std::endl;
+  AccumulateIRWithTransform(transform);
+  VPointCloud::Ptr total_vpointcloud_ptr(&total_vpointcloud_);
+  PointCloud::Ptr total_pointcloud_ptr(&total_pointcloud_);
+  ne_.setInputCloud (total_pointcloud_ptr);
+  ne_.setSearchMethod (tree_);
+  ne_.setKSearch (20);
+  kdtree.setInputCloud(total_pointcloud_ptr);
+  std::vector<float> Js (total_pointcloud_.size());
+
+#pragma omp parallel for num_threads(3)
+  //for(int i=0;i<total_pointcloud_ptr->points.size() && ros::ok();i++)
+  for(int i=0;i<total_pointcloud_ptr->points.size();i++)
+  {   
+    Js[i] = 0;
+    //LOG_EVERY_N(INFO, 1000) << "points processed: " << i;
+    //LOG_EVERY_N(INFO, 10) << "points processed: " << i;
+    std::vector<int> pointIdxRadiusSearch;
+    std::vector<float> pointRadiusSquaredDistance;
+    int number_neighbor=kdtree.radiusSearch(total_pointcloud_ptr->points[i], 0.2,pointIdxRadiusSearch, pointRadiusSquaredDistance);
+    if (number_neighbor > 20)
+    {
+      for (int j=0;j<number_neighbor;++j)
+      {
+
+	int current_beam =total_vpointcloud_ptr->points[i].ring;
+	int neighbor_beam=total_vpointcloud_ptr->points[ pointIdxRadiusSearch[j] ].ring;
+	if(abs(current_beam-neighbor_beam)<3)
+	{
+	  std::vector<float> point(3);
+	  point[0]=total_pointcloud_ptr->points[i].x-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].x;
+	  point[1]=total_pointcloud_ptr->points[i].y-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].y;
+	  point[2]=total_pointcloud_ptr->points[i].z-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].z;
+
+	  std::vector<float> normal(3); float curv;
+	  //float nx, ny, nz;
+	  std::vector<int> indices;
+	  std::vector<float> dists;
+	  int number_neighbor=kdtree.nearestKSearch(total_pointcloud_ptr->points[i], 20, indices, dists);
+	  //ne_.computePointNormal(total_pointcloud_, pointIdxRadiusSearch, normal[0], normal[1], normal[2], curv);
+	  ne_.computePointNormal(total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
+	  //normal[0]=cloud_normals->points[i].normal_x;
+	  //normal[1]=cloud_normals->points[i].normal_y;
+	  //normal[2]=cloud_normals->points[i].normal_z;
+	  float mag = point[0] * normal[0] + point[1] * normal[1] + point[2] * normal[2];
+	  Js[i] = mag * mag;
+	  break;
+	}
+      }
+    }
+  }
+  float J = 0;
+  for (auto& tJ : Js)
+        J += tJ;
+  return J;
+}
 
 void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
 {
@@ -93,7 +173,7 @@ void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
 
 void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
 {
-  int index = 0; total_vpointcloud_.clear();
+  int index = 0; total_vpointcloud_.clear(); total_pointcloud_.clear();
   for (auto curr_pc : pcl_pointclouds_)
   {
     PointCloud transformed_pointcloud;
@@ -107,9 +187,17 @@ void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
     // use below if need to correct...
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
     total_vpointcloud_ += transformed_vpointcloud;
+    total_pointcloud_  += transformed_pointcloud;
     index++;
   }
+  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_.size());
 }
+
+//void Accumulator::CopyVCloudToCloud()
+//{
+  //total_pointcloud_.clear();
+  //pcl::copyPointCloud(total_vpointcloud_, total_pointcloud_);
+//}
 
 int main(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
@@ -155,6 +243,7 @@ int main(int argc, char** argv) {
   std::vector<tf::Pose> odometry_poses;
   std::vector<VPointCloud> pcl_pointclouds;
   Accumulator accumulator;
+  //pcl::VoxelGrid<VPointCloud> sor;
 
   for (const rosbag::MessageInstance& message : view) {
     sensor_msgs::PointCloud2::ConstPtr pc2_msg = message.instantiate<sensor_msgs::PointCloud2>();
@@ -234,11 +323,18 @@ int main(int argc, char** argv) {
     //pc_pub.publish(*accumulator.GetTotalPointCloud());
     accumulator.AccumulateIRWithTransform(tf::Transform());
     accumulator.GetTotalVPointCloud()->header.frame_id = "map";
-    accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
+    //accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
     pc_pub.publish(*accumulator.GetTotalVPointCloud());
     ros::spin();
   }
   else if (b_opt_calibrate)
   {
+    omp_set_dynamic(0);
+    double begin_time = ros::Time::now().toSec();
+    LOG(INFO) << "Begin at:" << begin_time;
+    accumulator.J_calc_wTf(tf::Transform());
+    double end_time = ros::Time::now().toSec();
+    LOG(INFO) << "End at:" << end_time;
+    LOG(INFO) << "Time elapsed: " << end_time - begin_time;
   }
 }
