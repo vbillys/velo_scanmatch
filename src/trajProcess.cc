@@ -55,6 +55,39 @@ DEFINE_string(bag_filenames, "",
     "Bags to process, must be in the same order as the trajectories "
     "in 'pose_graph_filename'.");
 
+class Accumulator
+{
+  public:
+    std::vector<VPointCloud> * GetVectorClouds(){ return &pcl_pointclouds_;};
+    std::vector<tf::Pose> * GetOdometryPoses(){ return &odometry_poses_;};
+    PointCloud * GetTotalPointCloud(){ return &total_pointcloud_;};
+    void AccumulateWithTransform(const tf::Transform & transform);
+  private:
+    std::vector<tf::Pose> odometry_poses_;
+    std::vector<VPointCloud> pcl_pointclouds_;
+    PointCloud total_pointcloud_;
+    const tf::Transform correction_after_  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
+    const tf::Transform correction_before_ = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
+};
+
+void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
+{
+  int index = 0; total_pointcloud_.clear();
+  for (auto curr_pc : pcl_pointclouds_)
+  {
+    PointCloud transformed_pointcloud;
+    PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
+    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index]);
+    //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
+    // use below if need to correct...
+    //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
+    total_pointcloud_ += transformed_pointcloud;
+    index++;
+  }
+
+  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_.size());
+}
+
 int main(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
   google::InitGoogleLogging(argv[0]);
@@ -97,6 +130,7 @@ int main(int argc, char** argv) {
 
   std::vector<tf::Pose> odometry_poses;
   std::vector<VPointCloud> pcl_pointclouds;
+  Accumulator accumulator;
 
   for (const rosbag::MessageInstance& message : view) {
     sensor_msgs::PointCloud2::ConstPtr pc2_msg = message.instantiate<sensor_msgs::PointCloud2>();
@@ -113,7 +147,8 @@ int main(int argc, char** argv) {
       pcl::removeNaNFromPointCloud(t_ppcl_cloud, pcl_cloud_noNaN, indices);
       VPointCloud pcl_vcloud_noNaN;
       pcl::copyPointCloud(pcl_cloud, indices, pcl_vcloud_noNaN);
-      pcl_pointclouds.push_back( pcl_vcloud_noNaN);
+      //pcl_pointclouds.push_back( pcl_vcloud_noNaN);
+      accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
 
       const cartographer::transform::Rigid3d tracking_to_map =
 	transform_interpolation_buffer.Lookup(cartographer_ros::FromRos(pc2_msg->header.stamp));
@@ -121,7 +156,8 @@ int main(int argc, char** argv) {
       //const cartographer::transform::Rigid3d sensor_to_tracking;
       //const cartographer::transform::Rigid3f sensor_to_map =
 	//(tracking_to_map * sensor_to_tracking).cast<float>();
-      odometry_poses.push_back(tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
+      //odometry_poses.push_back(tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
+      accumulator.GetOdometryPoses()->push_back( tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
       LOG(INFO) << tracking_to_map;
     }
 
@@ -138,6 +174,7 @@ int main(int argc, char** argv) {
   }
   bag.close();
 
+#if 0
   //const tf::Transform correction_after  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
   const tf::Transform correction_after  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
   const tf::Transform correction_before = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
@@ -156,14 +193,24 @@ int main(int argc, char** argv) {
   }
 
   ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds.size(), odometry_poses.size(), total_pointcloud.size());
+#endif
 
   //total_pointcloud = PointCloud(pcl_pointclouds[0]);
   //pcl::copyPointCloud ( pcl_pointclouds[0], total_pointcloud);
-  total_pointcloud.header.frame_id = "map";
-  total_pointcloud.header.stamp    = ros::Time::now().toNSec();
 
+  //total_pointcloud.header.frame_id = "map";
+  //total_pointcloud.header.stamp    = ros::Time::now().toNSec();
+
+  accumulator.AccumulateWithTransform(tf::Transform());
 
   if (b_opt_publish_pc)
-    pc_pub.publish(total_pointcloud);
-  ros::spin();
+  {
+    accumulator.GetTotalPointCloud()->header.frame_id = "map";
+    accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
+    pc_pub.publish(*accumulator.GetTotalPointCloud());
+    ros::spin();
+  }
+  else
+  {
+  }
 }
