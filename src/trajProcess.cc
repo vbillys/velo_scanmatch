@@ -70,19 +70,21 @@ class Accumulator
   public:
     Accumulator(){
       tree_ = pcl::search::KdTree<pcl::PointXYZ>::Ptr(new pcl::search::KdTree<pcl::PointXYZ> ());
+      total_vpointcloud_ = VPointCloud::Ptr(new VPointCloud());
+      total_pointcloud_  =  PointCloud::Ptr(new  PointCloud());
     }
     std::vector<VPointCloud> * GetVectorClouds(){ return &pcl_pointclouds_;};
     std::vector<tf::Pose> * GetOdometryPoses(){ return &odometry_poses_;};
-    PointCloud  * GetTotalPointCloud() { return &total_pointcloud_;};
-    VPointCloud * GetTotalVPointCloud(){ return &total_vpointcloud_;};
+    PointCloud::Ptr   GetTotalPointCloud() { return total_pointcloud_;};
+    VPointCloud::Ptr  GetTotalVPointCloud(){ return total_vpointcloud_;};
     void AccumulateWithTransform(const tf::Transform & transform);
     void AccumulateIRWithTransform(const tf::Transform & transform);
     float J_calc_wTf(const tf::Transform & transform);
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
-    PointCloud total_pointcloud_;
-    VPointCloud total_vpointcloud_;
+    PointCloud::Ptr  total_pointcloud_;
+    VPointCloud::Ptr total_vpointcloud_;
     const tf::Transform correction_after_  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
     const tf::Transform correction_before_ = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
 
@@ -97,46 +99,49 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   //ne_.setRadiusSearch (0.1);
   //ne_.compute (*cloud_normals);
   //std::cout<<"normal calcualtion end"<<std::endl;
+
+  double begin_time = ros::Time::now().toSec();
+
   AccumulateIRWithTransform(transform);
-  VPointCloud::Ptr total_vpointcloud_ptr(&total_vpointcloud_);
-  PointCloud::Ptr total_pointcloud_ptr(&total_pointcloud_);
-  ne_.setInputCloud (total_pointcloud_ptr);
+  //VPointCloud::Ptr total_vpointcloud_ptr(&total_vpointcloud_);
+  //PointCloud::Ptr total_pointcloud_ptr(&total_pointcloud_);
+  ne_.setInputCloud (total_pointcloud_);
   ne_.setSearchMethod (tree_);
   ne_.setKSearch (20);
-  kdtree.setInputCloud(total_pointcloud_ptr);
-  std::vector<float> Js (total_pointcloud_.size());
+  kdtree.setInputCloud(total_pointcloud_);
+  std::vector<float> Js (total_pointcloud_->size());
 
-#pragma omp parallel for num_threads(3)
-  //for(int i=0;i<total_pointcloud_ptr->points.size() && ros::ok();i++)
-  for(int i=0;i<total_pointcloud_ptr->points.size();i++)
+#pragma omp parallel for num_threads(2)
+  //for(int i=0;i<total_pointcloud_->points.size() && ros::ok();i+=16)
+  for(int i=0;i<total_pointcloud_->points.size();i+=16)
   {   
     Js[i] = 0;
     //LOG_EVERY_N(INFO, 1000) << "points processed: " << i;
     //LOG_EVERY_N(INFO, 10) << "points processed: " << i;
     std::vector<int> pointIdxRadiusSearch;
     std::vector<float> pointRadiusSquaredDistance;
-    int number_neighbor=kdtree.radiusSearch(total_pointcloud_ptr->points[i], 0.2,pointIdxRadiusSearch, pointRadiusSquaredDistance);
+    int number_neighbor=kdtree.radiusSearch(total_pointcloud_->points[i], 0.2,pointIdxRadiusSearch, pointRadiusSquaredDistance);
     if (number_neighbor > 20)
     {
       for (int j=0;j<number_neighbor;++j)
       {
 
-	int current_beam =total_vpointcloud_ptr->points[i].ring;
-	int neighbor_beam=total_vpointcloud_ptr->points[ pointIdxRadiusSearch[j] ].ring;
+	int current_beam =total_vpointcloud_->points[i].ring;
+	int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
 	if(abs(current_beam-neighbor_beam)<3)
 	{
 	  std::vector<float> point(3);
-	  point[0]=total_pointcloud_ptr->points[i].x-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].x;
-	  point[1]=total_pointcloud_ptr->points[i].y-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].y;
-	  point[2]=total_pointcloud_ptr->points[i].z-total_pointcloud_ptr->points[pointIdxRadiusSearch[j]].z;
+	  point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[pointIdxRadiusSearch[j]].x;
+	  point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[pointIdxRadiusSearch[j]].y;
+	  point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[pointIdxRadiusSearch[j]].z;
 
 	  std::vector<float> normal(3); float curv;
 	  //float nx, ny, nz;
 	  std::vector<int> indices;
 	  std::vector<float> dists;
-	  int number_neighbor=kdtree.nearestKSearch(total_pointcloud_ptr->points[i], 20, indices, dists);
+	  int number_neighbor=kdtree.nearestKSearch(total_pointcloud_->points[i], 20, indices, dists);
 	  //ne_.computePointNormal(total_pointcloud_, pointIdxRadiusSearch, normal[0], normal[1], normal[2], curv);
-	  ne_.computePointNormal(total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
+	  ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
 	  //normal[0]=cloud_normals->points[i].normal_x;
 	  //normal[1]=cloud_normals->points[i].normal_y;
 	  //normal[2]=cloud_normals->points[i].normal_z;
@@ -150,12 +155,15 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   float J = 0;
   for (auto& tJ : Js)
         J += tJ;
+
+  LOG(INFO) << "Elapse in this iter: " << ros::Time::now().toSec() - begin_time;
+
   return J;
 }
 
 void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
 {
-  int index = 0; total_pointcloud_.clear();
+  int index = 0; total_pointcloud_->clear();
   for (auto curr_pc : pcl_pointclouds_)
   {
     PointCloud transformed_pointcloud;
@@ -164,16 +172,16 @@ void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
     // use below if need to correct...
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
-    total_pointcloud_ += transformed_pointcloud;
+    *total_pointcloud_ += transformed_pointcloud;
     index++;
   }
 
-  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_.size());
+  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_->size());
 }
 
 void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
 {
-  int index = 0; total_vpointcloud_.clear(); total_pointcloud_.clear();
+  int index = 0; total_vpointcloud_->clear(); total_pointcloud_->clear();
   for (auto curr_pc : pcl_pointclouds_)
   {
     PointCloud transformed_pointcloud;
@@ -186,11 +194,11 @@ void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
     // use below if need to correct...
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
-    total_vpointcloud_ += transformed_vpointcloud;
-    total_pointcloud_  += transformed_pointcloud;
+    *total_vpointcloud_ += transformed_vpointcloud;
+    *total_pointcloud_  += transformed_pointcloud;
     index++;
   }
-  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_.size());
+  ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_->size());
 }
 
 //void Accumulator::CopyVCloudToCloud()
@@ -332,7 +340,8 @@ int main(int argc, char** argv) {
     omp_set_dynamic(0);
     double begin_time = ros::Time::now().toSec();
     LOG(INFO) << "Begin at:" << begin_time;
-    accumulator.J_calc_wTf(tf::Transform());
+    for (int k=0; k<5 && ros::ok() ; k++)
+      accumulator.J_calc_wTf(tf::Transform());
     double end_time = ros::Time::now().toSec();
     LOG(INFO) << "End at:" << end_time;
     LOG(INFO) << "Time elapsed: " << end_time - begin_time;
