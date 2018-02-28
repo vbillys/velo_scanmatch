@@ -80,6 +80,9 @@ class Accumulator
     void AccumulateWithTransform(const tf::Transform & transform);
     void AccumulateIRWithTransform(const tf::Transform & transform);
     float J_calc_wTf(const tf::Transform & transform);
+    float J_calc_wRPY_degree(const double & roll, const double & pitch, const double & yaw);
+    float J_calc_wtrans_m ( const double & x, const double & y, const double & z);
+    float J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw);
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
@@ -92,6 +95,47 @@ class Accumulator
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne_;
 
 };
+
+class JExecutor
+{
+  public:
+    JExecutor(Accumulator* accumulator) : accumulator_(accumulator), filewriter_(std::ofstream("calibration_J_log.txt", std::ios::out | std::ios::binary))
+    {};
+    float J_calc_wEuler_andLog ( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw);
+  private:
+    Accumulator * accumulator_;
+    std::ofstream filewriter_;
+};
+
+float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw)
+{
+  float J = accumulator_->J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
+  //if (!filewriter_) filewriter_ = new std::ofstream("calibration_J_log.txt", std::ios::out | std::ios::binary);
+  if (filewriter_.bad()) LOG(WARNING) << "something wrong with io!! canceling write...";
+  else
+  {
+    int n=0; char buffer[200];
+    n += sprintf(buffer, "%.5f\n", J);
+    filewriter_.write(buffer, n);
+    ROS_INFO("logged: %s %d", buffer, n);
+  }
+  return J;
+}
+
+float Accumulator::J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw)
+{
+  return J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
+}
+
+float Accumulator::J_calc_wRPY_degree ( const double & roll, const double & pitch, const double & yaw)
+{
+  return J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180)));
+}
+
+float Accumulator::J_calc_wtrans_m ( const double & x, const double & y, const double & z)
+{
+  return J_calc_wTf(tf::Transform(tf::Quaternion::getIdentity(), tf::Vector3(x,y,z)));
+}
 
 float Accumulator::J_calc_wTf(const tf::Transform & transform)
 {
@@ -111,7 +155,7 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   kdtree.setInputCloud(total_pointcloud_);
   std::vector<float> Js (total_pointcloud_->size());
 
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for num_threads(3)
   //for(int i=0;i<total_pointcloud_->points.size() && ros::ok();i+=16)
   for(int i=0;i<total_pointcloud_->points.size();i+=16)
   {   
@@ -123,7 +167,7 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
     int number_neighbor=kdtree.radiusSearch(total_pointcloud_->points[i], 0.2,pointIdxRadiusSearch, pointRadiusSquaredDistance);
     if (number_neighbor > 20)
     {
-      for (int j=0;j<number_neighbor;++j)
+      for (int j=1;j<number_neighbor;++j)
       {
 
 	int current_beam =total_vpointcloud_->points[i].ring;
@@ -145,6 +189,7 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
 	  //normal[0]=cloud_normals->points[i].normal_x;
 	  //normal[1]=cloud_normals->points[i].normal_y;
 	  //normal[2]=cloud_normals->points[i].normal_z;
+	  //LOG(INFO) << point[0] << " " << normal[0] << " " << point[1] << " " << normal[1] << " " << point[2] << " " << normal[2];
 	  float mag = point[0] * normal[0] + point[1] * normal[1] + point[2] * normal[2];
 	  Js[i] = mag * mag;
 	  break;
@@ -156,7 +201,7 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   for (auto& tJ : Js)
         J += tJ;
 
-  LOG(INFO) << "Elapse in this iter: " << ros::Time::now().toSec() - begin_time;
+  LOG(INFO) << "Elapse in this iter: " << ros::Time::now().toSec() - begin_time << " cost: " << J;
 
   return J;
 }
@@ -168,7 +213,7 @@ void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
   {
     PointCloud transformed_pointcloud;
     PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
-    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index]);
+    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index] * transform);
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
     // use below if need to correct...
     //pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
@@ -186,7 +231,7 @@ void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
   {
     PointCloud transformed_pointcloud;
     PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
-    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index]);
+    pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, odometry_poses_[index] * transform);
 
     VPointCloud transformed_vpointcloud(curr_pc);
     pcl::copyPointCloud(transformed_pointcloud, transformed_vpointcloud);
@@ -329,7 +374,8 @@ int main(int argc, char** argv) {
     //accumulator.GetTotalPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
     //pc_pub.publish(*accumulator.GetTotalPointCloud());
-    accumulator.AccumulateIRWithTransform(tf::Transform());
+    //accumulator.AccumulateIRWithTransform(tf::transform());
+    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 5*M_PI/180, 0)));
     accumulator.GetTotalVPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
     pc_pub.publish(*accumulator.GetTotalVPointCloud());
@@ -338,10 +384,11 @@ int main(int argc, char** argv) {
   else if (b_opt_calibrate)
   {
     omp_set_dynamic(0);
+    JExecutor jexecutor(&accumulator);
     double begin_time = ros::Time::now().toSec();
     LOG(INFO) << "Begin at:" << begin_time;
-    for (int k=0; k<5 && ros::ok() ; k++)
-      accumulator.J_calc_wTf(tf::Transform());
+    for (int k=0; k<10 && ros::ok() ; k++)
+      jexecutor.J_calc_wEuler_andLog(0,0,0,0, k+5, 0);
     double end_time = ros::Time::now().toSec();
     LOG(INFO) << "End at:" << end_time;
     LOG(INFO) << "Time elapsed: " << end_time - begin_time;
