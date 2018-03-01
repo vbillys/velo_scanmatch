@@ -1,0 +1,8 @@
+<launch>
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/loamtraj.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag">-->
+	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">
+		<param name="publish_pc" value="false"/>
+		<param name="use_ref" value="false"/>
+		<param name="calibrate" value="true"/>
+	</node>
+</launch>
