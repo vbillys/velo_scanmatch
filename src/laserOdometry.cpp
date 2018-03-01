@@ -15,11 +15,21 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+
+#include "trajectory.pb.h"
+#include "proto_stream.h"
+#include "time_conversion.h"
+#include "msg_conversion.h"
+#include "transform.h"
+
+#include "velo_scanmatch/SaveTraj.h"
+
+
 bool g_force_SE2;
 
 const float scanPeriod = 0.1;
 
-const int skipFrameNum = 0;//1;
+const int skipFrameNum = 0;//0;//1;
 bool systemInited = false;
 
 double timeCornerPointsSharp = 0;
@@ -136,9 +146,9 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
   float y6 = sin(rz) * x5 + cos(rz) * y5 + ty;
   float z6 = z5 + tz;
 
-  float x7 = cos(imuRollStart) * (x6 - imuShiftFromStartX) 
+  float x7 = cos(imuRollStart) * (x6 - imuShiftFromStartX)
            - sin(imuRollStart) * (y6 - imuShiftFromStartY);
-  float y7 = sin(imuRollStart) * (x6 - imuShiftFromStartX) 
+  float y7 = sin(imuRollStart) * (x6 - imuShiftFromStartX)
            + cos(imuRollStart) * (y6 - imuShiftFromStartY);
   float z7 = z6 - imuShiftFromStartZ;
 
@@ -164,7 +174,7 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
   po->intensity = int(pi->intensity);
 }
 
-void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz, 
+void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz,
                        float alx, float aly, float alz, float &acx, float &acy, float &acz)
 {
   float sbcx = sin(bcx);
@@ -188,57 +198,57 @@ void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, fl
   float salz = sin(alz);
   float calz = cos(alz);
 
-  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
-            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly)
+            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
+            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
             - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
   acx = -asin(srx);
 
-  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
+               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz)
                + cbcx*sbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
-  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
-               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz)
+               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
                + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
   acy = atan2(srycrx / cos(acx), crycrx / cos(acx));
-  
-  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
-               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
-               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly) 
-               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx) 
-               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz 
-               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) 
+
+  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz)
+               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx)
+               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly)
+               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx)
+               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz
+               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz)
                + calx*cblx*salz*sblz);
-  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly) 
-               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx) 
-               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx) 
-               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) 
-               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
-               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
+  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly)
+               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx)
+               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx)
+               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly)
+               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly
+               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz)
                - calx*calz*cblx*sblz);
   acz = atan2(srzcrx / cos(acx), crzcrx / cos(acx));
 }
 
-void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
+void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz,
                         float &ox, float &oy, float &oz)
 {
   float srx = cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);
   ox = -asin(srx);
 
-  float srycrx = sin(lx)*(cos(cy)*sin(cz) - cos(cz)*sin(cx)*sin(cy)) + cos(lx)*sin(ly)*(cos(cy)*cos(cz) 
+  float srycrx = sin(lx)*(cos(cy)*sin(cz) - cos(cz)*sin(cx)*sin(cy)) + cos(lx)*sin(ly)*(cos(cy)*cos(cz)
                + sin(cx)*sin(cy)*sin(cz)) + cos(lx)*cos(ly)*cos(cx)*sin(cy);
-  float crycrx = cos(lx)*cos(ly)*cos(cx)*cos(cy) - cos(lx)*sin(ly)*(cos(cz)*sin(cy) 
+  float crycrx = cos(lx)*cos(ly)*cos(cx)*cos(cy) - cos(lx)*sin(ly)*(cos(cz)*sin(cy)
                - cos(cy)*sin(cx)*sin(cz)) - sin(lx)*(sin(cy)*sin(cz) + cos(cy)*cos(cz)*sin(cx));
   oy = atan2(srycrx / cos(ox), crycrx / cos(ox));
 
-  float srzcrx = sin(cx)*(cos(lz)*sin(ly) - cos(ly)*sin(lx)*sin(lz)) + cos(cx)*sin(cz)*(cos(ly)*cos(lz) 
+  float srzcrx = sin(cx)*(cos(lz)*sin(ly) - cos(ly)*sin(lx)*sin(lz)) + cos(cx)*sin(cz)*(cos(ly)*cos(lz)
                + sin(lx)*sin(ly)*sin(lz)) + cos(lx)*cos(cx)*cos(cz)*sin(lz);
-  float crzcrx = cos(lx)*cos(lz)*cos(cx)*cos(cz) - cos(cx)*sin(cz)*(cos(ly)*sin(lz) 
+  float crzcrx = cos(lx)*cos(lz)*cos(cx)*cos(cz) - cos(cx)*sin(cz)*(cos(ly)*sin(lz)
                - cos(lz)*sin(lx)*sin(ly)) - sin(cx)*(sin(ly)*sin(lz) + cos(ly)*cos(lz)*sin(lx));
   oz = atan2(srzcrx / cos(ox), crzcrx / cos(ox));
 }
@@ -324,6 +334,19 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   newImuTrans = true;
 }
 
+cartographer::mapping::proto::Trajectory g_traj;
+
+bool ServeSaveOdom(velo_scanmatch::SaveTraj::Request  &req,
+		   velo_scanmatch::SaveTraj::Response &res)
+{
+
+  ROS_WARN("service called");
+  cartographer::io::ProtoStreamWriter writer(req.filename);
+  writer.WriteProto(g_traj);
+  writer.Close();
+  ROS_WARN("trajectory saved as: %s", req.filename.c_str());
+  return true;
+}
 
 int main(int argc, char** argv)
 {
@@ -343,10 +366,10 @@ int main(int argc, char** argv)
   ros::Subscriber subSurfPointsLessFlat = nh.subscribe<sensor_msgs::PointCloud2>
                                           ("/laser_cloud_less_flat", 2, laserCloudLessFlatHandler);
 
-  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2> 
+  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2>
                                          ("/velodyne_cloud_2", 2, laserCloudFullResHandler);
 
-  ros::Subscriber subImuTrans = nh.subscribe<sensor_msgs::PointCloud2> 
+  ros::Subscriber subImuTrans = nh.subscribe<sensor_msgs::PointCloud2>
                                 ("/imu_trans", 5, imuTransHandler);
 
   ros::Publisher pubLaserCloudCornerLast = nh.advertise<sensor_msgs::PointCloud2>
@@ -355,10 +378,13 @@ int main(int argc, char** argv)
   ros::Publisher pubLaserCloudSurfLast = nh.advertise<sensor_msgs::PointCloud2>
                                          ("/laser_cloud_surf_last", 2);
 
-  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2> 
+  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
                                         ("/velodyne_cloud_3", 2);
 
   ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/laser_odom_to_init", 5);
+
+  ros::ServiceServer save_traj_srv = nh.advertiseService("save_odom", ServeSaveOdom);
+
   nav_msgs::Odometry laserOdometry;
   laserOdometry.header.frame_id = "/camera_init";
   laserOdometry.child_frame_id = "/laser_odom";
@@ -376,6 +402,8 @@ int main(int argc, char** argv)
   bool isDegenerate = false;
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
 
+  std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds;
+
   int frameCount = skipFrameNum;
   ros::Rate rate(100);
   bool status = ros::ok();
@@ -383,7 +411,7 @@ int main(int argc, char** argv)
     ros::spinOnce();
     //printf ("transform: %.3f %.3f %.3f %.3f %.3f %.3f ", transform[0], transform[1],transform[2],transform[3],transform[4],transform[5]);
 
-    if (newCornerPointsSharp && newCornerPointsLessSharp && newSurfPointsFlat && 
+    if (newCornerPointsSharp && newCornerPointsLessSharp && newSurfPointsFlat &&
         newSurfPointsLessFlat && newLaserCloudFullRes && newImuTrans &&
         fabs(timeCornerPointsSharp - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeCornerPointsLessSharp - timeSurfPointsLessFlat) < 0.005 &&
@@ -461,11 +489,11 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
+                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) *
+                               (laserCloudCornerLast->points[j].x - pointSel.x) +
+                               (laserCloudCornerLast->points[j].y - pointSel.y) *
+                               (laserCloudCornerLast->points[j].y - pointSel.y) +
+                               (laserCloudCornerLast->points[j].z - pointSel.z) *
                                (laserCloudCornerLast->points[j].z - pointSel.z);
 
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) {
@@ -480,11 +508,11 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
+                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) *
+                               (laserCloudCornerLast->points[j].x - pointSel.x) +
+                               (laserCloudCornerLast->points[j].y - pointSel.y) *
+                               (laserCloudCornerLast->points[j].y - pointSel.y) +
+                               (laserCloudCornerLast->points[j].z - pointSel.z) *
                                (laserCloudCornerLast->points[j].z - pointSel.z);
 
                   if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) {
@@ -515,21 +543,21 @@ int main(int argc, char** argv)
               float z2 = tripod2.z;
 
               float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                         * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                         * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                          + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                         * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+                         * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
                          + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))
                          * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
 
               float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
 
-              float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+              float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                        + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
 
-              float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+              float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                        - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
 
-              float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+              float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
                        + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
 
               float ld2 = a012 / l12;
@@ -572,11 +600,11 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
+                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) *
+                               (laserCloudSurfLast->points[j].x - pointSel.x) +
+                               (laserCloudSurfLast->points[j].y - pointSel.y) *
+                               (laserCloudSurfLast->points[j].y - pointSel.y) +
+                               (laserCloudSurfLast->points[j].z - pointSel.z) *
                                (laserCloudSurfLast->points[j].z - pointSel.z);
 
                   if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) {
@@ -596,11 +624,11 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
+                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) *
+                               (laserCloudSurfLast->points[j].x - pointSel.x) +
+                               (laserCloudSurfLast->points[j].y - pointSel.y) *
+                               (laserCloudSurfLast->points[j].y - pointSel.y) +
+                               (laserCloudSurfLast->points[j].z - pointSel.z) *
                                (laserCloudSurfLast->points[j].z - pointSel.z);
 
                   if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) {
@@ -627,11 +655,11 @@ int main(int argc, char** argv)
               tripod2 = laserCloudSurfLast->points[pointSearchSurfInd2[i]];
               tripod3 = laserCloudSurfLast->points[pointSearchSurfInd3[i]];
 
-              float pa = (tripod2.y - tripod1.y) * (tripod3.z - tripod1.z) 
+              float pa = (tripod2.y - tripod1.y) * (tripod3.z - tripod1.z)
                        - (tripod3.y - tripod1.y) * (tripod2.z - tripod1.z);
-              float pb = (tripod2.z - tripod1.z) * (tripod3.x - tripod1.x) 
+              float pb = (tripod2.z - tripod1.z) * (tripod3.x - tripod1.x)
                        - (tripod3.z - tripod1.z) * (tripod2.x - tripod1.x);
-              float pc = (tripod2.x - tripod1.x) * (tripod3.y - tripod1.y) 
+              float pc = (tripod2.x - tripod1.x) * (tripod3.y - tripod1.y)
                        - (tripod3.x - tripod1.x) * (tripod2.y - tripod1.y);
               float pd = -(pa * tripod1.x + pb * tripod1.y + pc * tripod1.z);
 
@@ -693,20 +721,20 @@ int main(int argc, char** argv)
             float ty = s * transform[4];
             float tz = s * transform[5];
 
-            float arx = (-s*crx*sry*srz*pointOri.x + s*crx*crz*sry*pointOri.y + s*srx*sry*pointOri.z 
+            float arx = (-s*crx*sry*srz*pointOri.x + s*crx*crz*sry*pointOri.y + s*srx*sry*pointOri.z
                       + s*tx*crx*sry*srz - s*ty*crx*crz*sry - s*tz*srx*sry) * coeff.x
                       + (s*srx*srz*pointOri.x - s*crz*srx*pointOri.y + s*crx*pointOri.z
                       + s*ty*crz*srx - s*tz*crx - s*tx*srx*srz) * coeff.y
                       + (s*crx*cry*srz*pointOri.x - s*crx*cry*crz*pointOri.y - s*cry*srx*pointOri.z
                       + s*tz*cry*srx + s*ty*crx*cry*crz - s*tx*crx*cry*srz) * coeff.z;
 
-            float ary = ((-s*crz*sry - s*cry*srx*srz)*pointOri.x 
-                      + (s*cry*crz*srx - s*sry*srz)*pointOri.y - s*crx*cry*pointOri.z 
-                      + tx*(s*crz*sry + s*cry*srx*srz) + ty*(s*sry*srz - s*cry*crz*srx) 
+            float ary = ((-s*crz*sry - s*cry*srx*srz)*pointOri.x
+                      + (s*cry*crz*srx - s*sry*srz)*pointOri.y - s*crx*cry*pointOri.z
+                      + tx*(s*crz*sry + s*cry*srx*srz) + ty*(s*sry*srz - s*cry*crz*srx)
                       + s*tz*crx*cry) * coeff.x
-                      + ((s*cry*crz - s*srx*sry*srz)*pointOri.x 
+                      + ((s*cry*crz - s*srx*sry*srz)*pointOri.x
                       + (s*cry*srz + s*crz*srx*sry)*pointOri.y - s*crx*sry*pointOri.z
-                      + s*tz*crx*sry - ty*(s*cry*srz + s*crz*srx*sry) 
+                      + s*tz*crx*sry - ty*(s*cry*srz + s*crz*srx*sry)
                       - tx*(s*cry*crz - s*srx*sry*srz)) * coeff.z;
 
             float arz = ((-s*cry*srz - s*crz*srx*sry)*pointOri.x + (s*cry*crz - s*srx*sry*srz)*pointOri.y
@@ -716,12 +744,12 @@ int main(int argc, char** argv)
                       + ((s*cry*crz*srx - s*sry*srz)*pointOri.x + (s*crz*sry + s*cry*srx*srz)*pointOri.y
                       + tx*(s*sry*srz - s*cry*crz*srx) - ty*(s*crz*sry + s*cry*srx*srz)) * coeff.z;
 
-            float atx = -s*(cry*crz - srx*sry*srz) * coeff.x + s*crx*srz * coeff.y 
+            float atx = -s*(cry*crz - srx*sry*srz) * coeff.x + s*crx*srz * coeff.y
                       - s*(crz*sry + cry*srx*srz) * coeff.z;
-  
-            float aty = -s*(cry*srz + crz*srx*sry) * coeff.x - s*crx*crz * coeff.y 
+
+            float aty = -s*(cry*srz + crz*srx*sry) * coeff.x - s*crx*crz * coeff.y
                       - s*(sry*srz - cry*crz*srx) * coeff.z;
-  
+
             float atz = s*crx*sry * coeff.x - s*srx * coeff.y - s*crx*cry * coeff.z;
 
             float d2 = coeff.intensity;
@@ -798,12 +826,12 @@ int main(int argc, char** argv)
       }
 
       float rx, ry, rz, tx, ty, tz;
-      AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
+      AccumulateRotation(transformSum[0], transformSum[1], transformSum[2],
                          -transform[0], -transform[1] * 1.05, -transform[2], rx, ry, rz);
 
-      float x1 = cos(rz) * (transform[3] - imuShiftFromStartX) 
+      float x1 = cos(rz) * (transform[3] - imuShiftFromStartX)
                - sin(rz) * (transform[4] - imuShiftFromStartY);
-      float y1 = sin(rz) * (transform[3] - imuShiftFromStartX) 
+      float y1 = sin(rz) * (transform[3] - imuShiftFromStartX)
                + cos(rz) * (transform[4] - imuShiftFromStartY);
       float z1 = transform[5] * 1.05 - imuShiftFromStartZ;
 
@@ -815,7 +843,7 @@ int main(int argc, char** argv)
       ty = transformSum[4] - y2;
       tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
 
-      PluginIMURotation(rx, ry, rz, imuPitchStart, imuYawStart, imuRollStart, 
+      PluginIMURotation(rx, ry, rz, imuPitchStart, imuYawStart, imuRollStart,
                         imuPitchLast, imuYawLast, imuRollLast, rx, ry, rz);
 
       transformSum[0] = rx;
@@ -841,6 +869,19 @@ int main(int argc, char** argv)
       laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
       laserOdometryTrans.setOrigin(tf::Vector3(tx, ty, tz));
       tfBroadcaster.sendTransform(laserOdometryTrans);
+
+      // adding to protobuf messages
+      auto new_node = g_traj.add_node();
+      new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(laserOdometry.header.stamp)));
+
+      tf::Transform pose_mapped (tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w), tf::Vector3(tx, ty, tz));
+      auto trans_corrected = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)) * pose_mapped * tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse() ;
+      auto quat_corrected = trans_corrected.getRotation();
+      auto pos_corrected = trans_corrected.getOrigin();
+      proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.w(), quat_corrected.x(), quat_corrected.y(), quat_corrected.z()))));
+      cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+      new_node->set_allocated_pose(t_proto_rigid3d);
+      ROS_INFO("lodometry node size: %d %.6f", g_traj.node_size(), timeSurfPointsLessFlat);
 
       int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
       for (int i = 0; i < cornerPointsLessSharpNum; i++) {

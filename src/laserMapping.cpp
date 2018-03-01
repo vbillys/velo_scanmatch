@@ -88,10 +88,10 @@ float imuPitch[imuQueLength] = {0};
 
 void transformAssociateToMap()
 {
-  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
+  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3])
            - sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
   float y1 = transformBefMapped[4] - transformSum[4];
-  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
+  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3])
            + cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
 
   float x2 = x1;
@@ -123,10 +123,10 @@ void transformAssociateToMap()
   float salz = sin(transformAftMapped[2]);
   float calz = cos(transformAftMapped[2]);
 
-  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
-            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly)
+            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
+            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
             - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
   if (g_force_SE2) {
     transformTobeMapped[0] = 0;//-asin(srx);
@@ -134,40 +134,40 @@ void transformAssociateToMap()
     transformTobeMapped[0] = -asin(srx);
   }
 
-  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
+               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz)
                + cbcx*sbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
-  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
-               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz)
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz)
+               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly)
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx)
                + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
-  transformTobeMapped[1] = atan2(srycrx / cos(transformTobeMapped[0]), 
+  transformTobeMapped[1] = atan2(srycrx / cos(transformTobeMapped[0]),
                                  crycrx / cos(transformTobeMapped[0]));
-  
-  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
-               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
-               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly) 
-               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx) 
-               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz 
-               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) 
+
+  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz)
+               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx)
+               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly)
+               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx)
+               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz
+               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz)
                + calx*cblx*salz*sblz);
-  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly) 
-               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx) 
-               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx) 
-               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) 
-               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
-               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
+  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly)
+               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx)
+               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx)
+               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly)
+               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly
+               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz)
                - calx*calz*cblx*sblz);
   if (g_force_SE2) {
-    transformTobeMapped[2] = 0;//atan2(srzcrx / cos(transformTobeMapped[0]), 
+    transformTobeMapped[2] = 0;//atan2(srzcrx / cos(transformTobeMapped[0]),
     //crzcrx / cos(transformTobeMapped[0]));
   }
   else
   {
-    transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
+    transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]),
 	crzcrx / cos(transformTobeMapped[0]));
   }
 
@@ -180,7 +180,7 @@ void transformAssociateToMap()
   y2 = cos(transformTobeMapped[0]) * y1 - sin(transformTobeMapped[0]) * z1;
   z2 = sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
 
-  transformTobeMapped[3] = transformAftMapped[3] 
+  transformTobeMapped[3] = transformAftMapped[3]
                          - (cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2);
   if (g_force_SE2) {
     transformTobeMapped[4] = 0;//transformAftMapped[4] - y2;
@@ -189,7 +189,7 @@ void transformAssociateToMap()
   {
     transformTobeMapped[4] = transformAftMapped[4] - y2;
   }
-  transformTobeMapped[5] = transformAftMapped[5] 
+  transformTobeMapped[5] = transformAftMapped[5]
                          - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
 }
 
@@ -209,9 +209,9 @@ void transformUpdate()
       imuPitchLast = imuPitch[imuPointerFront];
     } else {
       int imuPointerBack = (imuPointerFront + imuQueLength - 1) % imuQueLength;
-      float ratioFront = (timeLaserOdometry + scanPeriod - imuTime[imuPointerBack]) 
+      float ratioFront = (timeLaserOdometry + scanPeriod - imuTime[imuPointerBack])
                        / (imuTime[imuPointerFront] - imuTime[imuPointerBack]);
-      float ratioBack = (imuTime[imuPointerFront] - timeLaserOdometry - scanPeriod) 
+      float ratioBack = (imuTime[imuPointerFront] - timeLaserOdometry - scanPeriod)
                       / (imuTime[imuPointerFront] - imuTime[imuPointerBack]);
 
       imuRollLast = imuRoll[imuPointerFront] * ratioFront + imuRoll[imuPointerBack] * ratioBack;
@@ -250,10 +250,10 @@ void pointAssociateToMap(PointType const * const pi, PointType * const po)
 
 void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
 {
-  float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
+  float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3])
            - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
   float y1 = pi->y - transformTobeMapped[4];
-  float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
+  float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3])
            + cos(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
 
   float x2 = x1;
@@ -357,18 +357,18 @@ int main(int argc, char** argv)
   ros::Subscriber subLaserCloudSurfLast = nh.subscribe<sensor_msgs::PointCloud2>
                                           ("/laser_cloud_surf_last", 2, laserCloudSurfLastHandler);
 
-  ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
+  ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry>
                                      ("/laser_odom_to_init", 5, laserOdometryHandler);
 
-  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2> 
+  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2>
                                          ("/velodyne_cloud_3", 2, laserCloudFullResHandler);
 
   ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> ("/imu/data", 50, imuHandler);
 
-  ros::Publisher pubLaserCloudSurround = nh.advertise<sensor_msgs::PointCloud2> 
+  ros::Publisher pubLaserCloudSurround = nh.advertise<sensor_msgs::PointCloud2>
                                          ("/laser_cloud_surround", 1);
 
-  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2> 
+  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
                                         ("/velodyne_cloud_registered", 2);
 
   ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 5);
@@ -485,9 +485,9 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i - 1 + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
@@ -512,9 +512,9 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i + 1 + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
@@ -539,18 +539,18 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i + laserCloudWidth * (j - 1) + laserCloudWidth * laserCloudHeight*k];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
             }
           }
- 
+
           centerCubeJ++;
           laserCloudCenHeight++;
-        } 
+        }
 
         while (centerCubeJ >= laserCloudHeight - 3) {
           for (int i = 0; i < laserCloudWidth; i++) {
@@ -566,9 +566,9 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i + laserCloudWidth * (j + 1) + laserCloudWidth * laserCloudHeight*k];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
@@ -593,9 +593,9 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight*(k - 1)];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
@@ -605,7 +605,7 @@ int main(int argc, char** argv)
           centerCubeK++;
           laserCloudCenDepth++;
         }
-      
+
         while (centerCubeK >= laserCloudDepth - 3) {
           for (int i = 0; i < laserCloudWidth; i++) {
             for (int j = 0; j < laserCloudHeight; j++) {
@@ -620,9 +620,9 @@ int main(int argc, char** argv)
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
                 laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight*(k + 1)];
               }
-              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeCornerPointer;
-              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] = 
+              laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
               laserCloudCubeSurfPointer;
               laserCloudCubeCornerPointer->clear();
               laserCloudCubeSurfPointer->clear();
@@ -638,8 +638,8 @@ int main(int argc, char** argv)
         for (int i = centerCubeI - 2; i <= centerCubeI + 2; i++) {
           for (int j = centerCubeJ - 2; j <= centerCubeJ + 2; j++) {
             for (int k = centerCubeK - 2; k <= centerCubeK + 2; k++) {
-              if (i >= 0 && i < laserCloudWidth && 
-                  j >= 0 && j < laserCloudHeight && 
+              if (i >= 0 && i < laserCloudWidth &&
+                  j >= 0 && j < laserCloudHeight &&
                   k >= 0 && k < laserCloudDepth) {
 
                 float centerX = 50.0 * (i - laserCloudCenWidth);
@@ -654,14 +654,14 @@ int main(int argc, char** argv)
                       float cornerY = centerY + 25.0 * jj;
                       float cornerZ = centerZ + 25.0 * kk;
 
-                      float squaredSide1 = (transformTobeMapped[3] - cornerX) 
-                                         * (transformTobeMapped[3] - cornerX) 
-                                         + (transformTobeMapped[4] - cornerY) 
+                      float squaredSide1 = (transformTobeMapped[3] - cornerX)
+                                         * (transformTobeMapped[3] - cornerX)
+                                         + (transformTobeMapped[4] - cornerY)
                                          * (transformTobeMapped[4] - cornerY)
-                                         + (transformTobeMapped[5] - cornerZ) 
+                                         + (transformTobeMapped[5] - cornerZ)
                                          * (transformTobeMapped[5] - cornerZ);
 
-                      float squaredSide2 = (pointOnYAxis.x - cornerX) * (pointOnYAxis.x - cornerX) 
+                      float squaredSide2 = (pointOnYAxis.x - cornerX) * (pointOnYAxis.x - cornerX)
                                          + (pointOnYAxis.y - cornerY) * (pointOnYAxis.y - cornerY)
                                          + (pointOnYAxis.z - cornerZ) * (pointOnYAxis.z - cornerZ);
 
@@ -679,11 +679,11 @@ int main(int argc, char** argv)
                 }
 
                 if (isInLaserFOV) {
-                  laserCloudValidInd[laserCloudValidNum] = i + laserCloudWidth * j 
+                  laserCloudValidInd[laserCloudValidNum] = i + laserCloudWidth * j
                                                        + laserCloudWidth * laserCloudHeight * k;
                   laserCloudValidNum++;
                 }
-                laserCloudSurroundInd[laserCloudSurroundNum] = i + laserCloudWidth * j 
+                laserCloudSurroundInd[laserCloudSurroundNum] = i + laserCloudWidth * j
                                                              + laserCloudWidth * laserCloudHeight * k;
                 laserCloudSurroundNum++;
               }
@@ -735,10 +735,10 @@ int main(int argc, char** argv)
               pointOri = laserCloudCornerStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel);
               kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
-              
+
               if (pointSearchSqDis[4] < 1.0) {
                 float cx = 0;
-                float cy = 0; 
+                float cy = 0;
                 float cz = 0;
                 for (int j = 0; j < 5; j++) {
                   cx += laserCloudCornerFromMap->points[pointSearchInd[j]].x;
@@ -746,14 +746,14 @@ int main(int argc, char** argv)
                   cz += laserCloudCornerFromMap->points[pointSearchInd[j]].z;
                 }
                 cx /= 5;
-                cy /= 5; 
+                cy /= 5;
                 cz /= 5;
 
                 float a11 = 0;
-                float a12 = 0; 
+                float a12 = 0;
                 float a13 = 0;
                 float a22 = 0;
-                float a23 = 0; 
+                float a23 = 0;
                 float a33 = 0;
                 for (int j = 0; j < 5; j++) {
                   float ax = laserCloudCornerFromMap->points[pointSearchInd[j]].x - cx;
@@ -768,10 +768,10 @@ int main(int argc, char** argv)
                   a33 += az * az;
                 }
                 a11 /= 5;
-                a12 /= 5; 
+                a12 /= 5;
                 a13 /= 5;
                 a22 /= 5;
-                a23 /= 5; 
+                a23 /= 5;
                 a33 /= 5;
 
                 matA1.at<float>(0, 0) = a11;
@@ -799,21 +799,21 @@ int main(int argc, char** argv)
                   float z2 = cz - 0.1 * matV1.at<float>(0, 2);
 
                   float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                             * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                             * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                              + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                             * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+                             * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
                              + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))
                              * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
 
                   float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
 
-                  float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                  float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                            + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
 
-                  float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                  float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                            - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
 
-                  float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+                  float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
                            + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
 
                   float ld2 = a012 / l12;
@@ -840,7 +840,7 @@ int main(int argc, char** argv)
 
             for (int i = 0; i < laserCloudSurfStackNum; i++) {
               pointOri = laserCloudSurfStack->points[i];
-              pointAssociateToMap(&pointOri, &pointSel); 
+              pointAssociateToMap(&pointOri, &pointSel);
               kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
 
               if (pointSearchSqDis[4] < 1.0) {
@@ -855,7 +855,7 @@ int main(int argc, char** argv)
                 float pb = matX0.at<float>(1, 0);
                 float pc = matX0.at<float>(2, 0);
                 float pd = 1;
- 
+
                 float ps = sqrt(pa * pa + pb * pb + pc * pc);
                 pa /= ps;
                 pb /= ps;
@@ -922,9 +922,9 @@ int main(int argc, char** argv)
                         + (-srx*srz*pointOri.x - crz*srx*pointOri.y - crx*pointOri.z) * coeff.y
                         + (crx*cry*srz*pointOri.x + crx*cry*crz*pointOri.y - cry*srx*pointOri.z) * coeff.z;
 
-              float ary = ((cry*srx*srz - crz*sry)*pointOri.x 
+              float ary = ((cry*srx*srz - crz*sry)*pointOri.x
                         + (sry*srz + cry*crz*srx)*pointOri.y + crx*cry*pointOri.z) * coeff.x
-                        + ((-cry*crz - srx*sry*srz)*pointOri.x 
+                        + ((-cry*crz - srx*sry*srz)*pointOri.x
                         + (cry*srz - crz*srx*sry)*pointOri.y - crx*sry*pointOri.z) * coeff.z;
 
               float arz = ((crz*srx*sry - cry*srz)*pointOri.x + (-cry*crz-srx*sry*srz)*pointOri.y)*coeff.x
@@ -1026,8 +1026,8 @@ int main(int argc, char** argv)
           if (pointSel.y + 25.0 < 0) cubeJ--;
           if (pointSel.z + 25.0 < 0) cubeK--;
 
-          if (cubeI >= 0 && cubeI < laserCloudWidth && 
-              cubeJ >= 0 && cubeJ < laserCloudHeight && 
+          if (cubeI >= 0 && cubeI < laserCloudWidth &&
+              cubeJ >= 0 && cubeJ < laserCloudHeight &&
               cubeK >= 0 && cubeK < laserCloudDepth) {
             int cubeInd = cubeI + laserCloudWidth * cubeJ + laserCloudWidth * laserCloudHeight * cubeK;
             laserCloudCornerArray[cubeInd]->push_back(pointSel);
@@ -1045,8 +1045,8 @@ int main(int argc, char** argv)
           if (pointSel.y + 25.0 < 0) cubeJ--;
           if (pointSel.z + 25.0 < 0) cubeK--;
 
-          if (cubeI >= 0 && cubeI < laserCloudWidth && 
-              cubeJ >= 0 && cubeJ < laserCloudHeight && 
+          if (cubeI >= 0 && cubeI < laserCloudWidth &&
+              cubeJ >= 0 && cubeJ < laserCloudHeight &&
               cubeK >= 0 && cubeK < laserCloudDepth) {
             int cubeInd = cubeI + laserCloudWidth * cubeJ + laserCloudWidth * laserCloudHeight * cubeK;
             laserCloudSurfArray[cubeInd]->push_back(pointSel);
@@ -1127,7 +1127,7 @@ int main(int argc, char** argv)
 
         aftMappedTrans.stamp_ = ros::Time().fromSec(timeLaserOdometry);
 	aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-	aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], 
+	aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3],
 					     transformAftMapped[4], transformAftMapped[5]));
 	tf::Transform pose_mapped (tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w), tf::Vector3(transformAftMapped[3], transformAftMapped[4], transformAftMapped[5]));
 	auto trans_corrected = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)) * pose_mapped * tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse() ;
@@ -1138,7 +1138,7 @@ int main(int argc, char** argv)
 	//auto pos_corrected  = pose_mapped.getOrigin();
 	//aftMappedTrans.setRotation(tf::Quaternion( geoQuat.x, -geoQuat.y, -geoQuat.z, geoQuat.w));
 	aftMappedTrans.setRotation(quat_corrected);
-	//aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[5], 
+	//aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[5],
 	      //transformAftMapped[3], transformAftMapped[4]));
 	aftMappedTrans.setOrigin(pos_corrected);
         tfBroadcaster.sendTransform(aftMappedTrans);
@@ -1157,7 +1157,7 @@ int main(int argc, char** argv)
 	proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(pos_corrected.x(), pos_corrected.y(), pos_corrected.z()), cartographer::transform::Rigid3d::Quaternion(quat_corrected.w(), quat_corrected.x(), quat_corrected.y(), quat_corrected.z()))));
 	cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 	new_node->set_allocated_pose(t_proto_rigid3d);
-	ROS_INFO("node size: %d", g_traj.node_size());
+	ROS_INFO("lmapping node size: %d %.6f", g_traj.node_size(), timeLaserOdometry);
       }
     }
 
@@ -1168,4 +1168,3 @@ int main(int argc, char** argv)
 
   return 0;
 }
-

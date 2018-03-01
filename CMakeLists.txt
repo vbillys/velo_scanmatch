@@ -59,8 +59,9 @@ catkin_package(
 add_executable(scanRegistration src/scanRegistration.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
-add_executable(laserOdometry src/laserOdometry.cpp)
-target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_executable(laserOdometry src/laserOdometry.cpp src/proto_stream.cc src/time_conversion.cc src/time.cc src/msg_conversion.cc src/transform.cc)
+#target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(laserOdometry  ${catkin_LIBRARIES} trajproto protobuf ${PCL_LIBRARIES} ${OpenCV_LIBS} glog)
 
 add_executable(laserMapping src/laserMapping.cpp src/proto_stream.cc src/time_conversion.cc src/time.cc src/msg_conversion.cc src/transform.cc)
 #target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_LIBRARIES} ${OpenCV_LIBS})
