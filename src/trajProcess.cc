@@ -446,6 +446,7 @@ int main(int argc, char** argv) {
   pnh.param<std::string>("ref_topic"  , ref_topic, "/velodyne_left/velodyne_points");
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
+  ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
 
   ROS_INFO("Using traj file: %s", FLAGS_traj_filename.c_str());
   cartographer::io::ProtoStreamReader reader(FLAGS_traj_filename);
@@ -621,10 +622,15 @@ int main(int argc, char** argv) {
     //accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
     //pc_pub.publish(*accumulator.GetTotalPointCloud());
     //accumulator.AccumulateIRWithTransform(tf::transform());
-    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 5*M_PI/180, 0)));
+    //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 9.75*M_PI/180, 0), tf::Vector3(0,-2.455,0)));
+    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 9.75*M_PI/180, 0), tf::Vector3(0,-1.98,0)));
     accumulator.GetTotalVPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
     pc_pub.publish(*accumulator.GetTotalVPointCloud());
+    if (b_opt_use_ref){
+	accumulator.GetRefTotalVPointCloud()->header.frame_id = "map";
+	ref_pc_pub.publish(*accumulator.GetRefTotalVPointCloud());
+    }
     ros::spin();
   }
   else if (b_opt_calibrate)
@@ -637,8 +643,10 @@ int main(int argc, char** argv) {
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, k-10, 0);
       //jexecutor.J_calc_wEuler_andLog(0,0,0,0, static_cast<double>(k*0.25-2.5), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(7.5+k*0.25), 0);
-      jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(0+k), 0);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(0+k), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(9.5+k*0.25), 0);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98-0.75 + k*0.025,0,0, 9.75, 0);
+      jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, 9.75, 0-2.5 + k*0.25);
     double end_time = ros::Time::now().toSec();
     LOG(INFO) << "End at:" << end_time;
     LOG(INFO) << "Time elapsed: " << end_time - begin_time;
