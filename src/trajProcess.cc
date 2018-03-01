@@ -59,6 +59,7 @@ typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+pcl::KdTreeFLANN<pcl::PointXYZ> ref_kdtree;
 
 DEFINE_string(traj_filename, "",
     "Proto stream file containing the pose graph.");
@@ -69,32 +70,51 @@ DEFINE_string(bag_filenames, "",
 class Accumulator
 {
   public:
-    Accumulator(){
+    Accumulator() : use_ref_(false){
       tree_ = pcl::search::KdTree<pcl::PointXYZ>::Ptr(new pcl::search::KdTree<pcl::PointXYZ> ());
       total_vpointcloud_ = VPointCloud::Ptr(new VPointCloud());
       total_pointcloud_  =  PointCloud::Ptr(new  PointCloud());
+      ref_total_vpointcloud_ = VPointCloud::Ptr(new VPointCloud());
+      ref_total_pointcloud_  =  PointCloud::Ptr(new  PointCloud());
+
     }
     std::vector<VPointCloud> * GetVectorClouds(){ return &pcl_pointclouds_;};
     std::vector<tf::Pose> * GetOdometryPoses(){ return &odometry_poses_;};
     PointCloud::Ptr   GetTotalPointCloud() { return total_pointcloud_;};
     VPointCloud::Ptr  GetTotalVPointCloud(){ return total_vpointcloud_;};
+
+    std::vector<VPointCloud> * GetRefVectorClouds(){ return &ref_pcl_pointclouds_;};
+    std::vector<tf::Pose> * GetRefOdometryPoses(){ return &ref_odometry_poses_;};
+    PointCloud::Ptr   GetRefTotalPointCloud() { return ref_total_pointcloud_;};
+    VPointCloud::Ptr  GetRefTotalVPointCloud(){ return ref_total_vpointcloud_;};
+
     void AccumulateWithTransform(const tf::Transform & transform);
     void AccumulateIRWithTransform(const tf::Transform & transform);
     float J_calc_wTf(const tf::Transform & transform);
     float J_calc_wRPY_degree(const double & roll, const double & pitch, const double & yaw);
     float J_calc_wtrans_m ( const double & x, const double & y, const double & z);
     float J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw);
+
+    void setUseRef(const bool & use_ref){use_ref_ = use_ref;};
+
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
     PointCloud::Ptr  total_pointcloud_;
     VPointCloud::Ptr total_vpointcloud_;
+
+    std::vector<tf::Pose> ref_odometry_poses_;
+    std::vector<VPointCloud> ref_pcl_pointclouds_;
+    PointCloud::Ptr  ref_total_pointcloud_;
+    VPointCloud::Ptr ref_total_vpointcloud_;
+
     const tf::Transform correction_after_  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795));
     const tf::Transform correction_before_ = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
 
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree_;
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne_;
 
+    bool use_ref_;
 };
 
 class JExecutor
@@ -144,9 +164,10 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   constexpr int neighbooring_for_normal_est = 20; //100; //40;
   constexpr int neighbooring_for_min_density = 10; //2; //20;
   constexpr int beam_no_max_diff = 4; //5; //3; //8; //3;
-  constexpr float max_distance_between_two_points = 0.36; //0.2; //0.8; //0.2;
-  constexpr int skip_points = 16; //8; //16;
-  //constexpr int max_relations_per_i = 3;
+  constexpr float max_distance_between_two_points = 0.2; //0.5; //0.2; //0.36; //0.2; //0.8; //0.2;
+  constexpr int skip_points = 16; //4; //16; //32; //16; //8; //16;
+  constexpr int max_relations_per_i = 1;
+  constexpr float max_dist_squared = max_distance_between_two_points * max_distance_between_two_points;
   //std::cout<<"normal calcualtion begin"<<std::endl;
   //ne_.setRadiusSearch (0.1);
   //ne_.compute (*cloud_normals);
@@ -161,6 +182,8 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   ne_.setSearchMethod (tree_);
   ne_.setKSearch (20);
   kdtree.setInputCloud(total_pointcloud_);
+  if (use_ref_) ref_kdtree.setInputCloud(ref_total_pointcloud_);
+
   std::vector<float> Js (total_pointcloud_->size());
   std::vector<std::vector<int>>  takens (total_pointcloud_->size());
   
@@ -168,113 +191,160 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   omp_lock_t writelock;
   omp_init_lock(&writelock);
 
+  if (use_ref_) {
 #pragma omp parallel for num_threads(3)
-  //for(int i=0;i<total_pointcloud_->points.size() && ros::ok();i+=16)
-  for(int i=0;i<total_pointcloud_->points.size();i+=skip_points)
-  {   
-    Js[i] = 0;
-    //LOG_EVERY_N(INFO, 1000) << "points processed: " << i;
-    //LOG_EVERY_N(INFO, 10) << "points processed: " << i;
-    std::vector<int> pointIdxRadiusSearch;
-    std::vector<float> pointRadiusSquaredDistance;
+      for(int i=0;i<total_pointcloud_->points.size();i+=skip_points)
+      {   
+	Js[i] = 0;
 
-    std::vector<float> normal(3); float curv;
-    std::vector<int> indices;
-    std::vector<float> dists;
-    kdtree.nearestKSearch(total_pointcloud_->points[i], neighbooring_for_normal_est , indices, dists);
-    ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
-    if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2]))
-    {}else continue;
-    // check if normal is valid first before anything else
+	std::vector<int> pointIdxRadiusSearch;
+	std::vector<float> pointRadiusSquaredDistance;
 
-    int number_neighbor=kdtree.radiusSearch(total_pointcloud_->points[i], max_distance_between_two_points ,pointIdxRadiusSearch, pointRadiusSquaredDistance);
-    if (number_neighbor >= neighbooring_for_min_density )
-    {
-      int current_beam =total_vpointcloud_->points[i].ring;
-      //int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
-      // we form subclouds for choosing nearest points seen by other points' beam
-      for (int beam_j = std::max(0,current_beam-beam_no_max_diff); beam_j<=std::min(15,current_beam+beam_no_max_diff); beam_j++)
-      {
+	std::vector<float> normal(3); float curv;
+	std::vector<int> indices;
+	std::vector<float> dists;
+	kdtree.nearestKSearch(total_pointcloud_->points[i], neighbooring_for_normal_est , indices, dists);
+	ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
+	if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2]))
+	{}else continue;
+	// check if normal is valid first before anything else
 
-	    //for (int j=1;j<number_neighbor;++j)
-	    //int j_count = 0;
-	    // WARNING: -1 means no this beam closest view...
-	    int nearest_beam_index= -1;
-	    // WARNING assuming big distanc will never reach...
-	    float closest_dist_squared = 1e11;
-	    std::vector<float> point(3), nearest_vec(3);
-	    for (int j=number_neighbor-1;j>=1;--j)
-	    {
-	      int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
+	int number_neighbor=ref_kdtree.radiusSearch(total_pointcloud_->points[i], max_distance_between_two_points ,pointIdxRadiusSearch, pointRadiusSquaredDistance);
+	if (number_neighbor >= neighbooring_for_min_density )
+	{
+	  int j_count = 0;
+	  //for (int j=number_neighbor-1;j>=1;--j)
+	  for (int j=1;j<number_neighbor;++j)
+	  {
+	    if (j_count > max_relations_per_i) break;
 
-	      if (beam_j == neighbor_beam )
-	      {
-		int neighbor_idx = pointIdxRadiusSearch[j];
-		point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
-		point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
-		point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
-		float t_dist_squared = point[0] * point[0] + point[1] * point[1] + point[2] * point[2];
+	    int neighbor_idx = pointIdxRadiusSearch[j];
 
-		if (closest_dist_squared > t_dist_squared )
-		{
-		  closest_dist_squared = t_dist_squared;
-		  nearest_beam_index = pointIdxRadiusSearch[j];
-		  nearest_vec[0] = point[0];nearest_vec[1] = point[1];nearest_vec[2] = point[2];
-		}
-	      }
-	    }
-	    //if (j_count >= max_relations_per_i) break;
+	    std::vector<float> point(3);
+	    point[0]=total_pointcloud_->points[i].x-ref_total_pointcloud_->points[neighbor_idx].x;
+	    point[1]=total_pointcloud_->points[i].y-ref_total_pointcloud_->points[neighbor_idx].y;
+	    point[2]=total_pointcloud_->points[i].z-ref_total_pointcloud_->points[neighbor_idx].z;
 
-	    //int current_beam =total_vpointcloud_->points[i].ring;
-	    //int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
-	    //if(abs(current_beam-neighbor_beam)<beam_no_max_diff )
-	    //{
-	    //int neighbor_idx = pointIdxRadiusSearch[j];
+	    float mag = point[0] * normal[0] + point[1] * normal[1] + point[2] * normal[2];
+	    //float mag = point[0] * point[0] + point[1] * point[1] + point[2] * point[2];
+	    Js[i] += mag * mag;
 
-	    // check if this relation has been computed before
-	    // if not we do computation and set it to computed
-	    //omp_set_lock(&writelock);
-	    //bool computed_before = false;
-	    //for ( auto& t : takens [neighbor_idx ]) {if (t==i) {computed_before = true; break;}}
-	    //if (false == computed_before) takens[neighbor_idx ].push_back(i);
-	    //omp_unset_lock(&writelock);
-	    //if (computed_before) continue;
-
-	    //std::vector<float> point(3);
-	    //point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
-	    //point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
-	    //point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
-
-	    if (nearest_beam_index != -1)
-	    {
-	      //std::vector<float> normal(3); float curv;
-	      ////float nx, ny, nz;
-	      //std::vector<int> indices;
-	      //std::vector<float> dists;
-	      //int number_neighbor=kdtree.nearestKSearch(total_pointcloud_->points[i], neighbooring_for_normal_est , indices, dists);
-	      ////ne_.computePointNormal(total_pointcloud_, pointIdxRadiusSearch, normal[0], normal[1], normal[2], curv);
-	      //ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
-	      //normal[0]=cloud_normals->points[i].normal_x;
-	      //normal[1]=cloud_normals->points[i].normal_y;
-	      //normal[2]=cloud_normals->points[i].normal_z;
-	      //LOG(INFO) << point[0] << " " << normal[0] << " " << point[1] << " " << normal[1] << " " << point[2] << " " << normal[2];
-	      //
-	      //if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2]))
-	      //{
-		//float mag = point[0] * normal[0] + point[1] * normal[1] + point[2] * normal[2];
-		float mag = nearest_vec[0] * normal[0] + nearest_vec[1] * normal[1] + nearest_vec[2] * normal[2];
-		Js[i] += mag * mag;
-		//j_count++;
-	      //}
-	    
-	    //else 
-	      //continue;
-	    //LOG(INFO) << mag;
-	    //break;
-	    }
-        //}
+	    j_count++;
+	  }
+	}
       }
-    }
+  }
+  else
+  {
+#pragma omp parallel for num_threads(3)
+      //for(int i=0;i<total_pointcloud_->points.size() && ros::ok();i+=16)
+      for(int i=0;i<total_pointcloud_->points.size();i+=skip_points)
+      {   
+	Js[i] = 0;
+	//LOG_EVERY_N(INFO, 1000) << "points processed: " << i;
+	//LOG_EVERY_N(INFO, 10) << "points processed: " << i;
+	std::vector<int> pointIdxRadiusSearch;
+	std::vector<float> pointRadiusSquaredDistance;
+
+	std::vector<float> normal(3); float curv;
+	std::vector<int> indices;
+	std::vector<float> dists;
+	kdtree.nearestKSearch(total_pointcloud_->points[i], neighbooring_for_normal_est , indices, dists);
+	ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
+	if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2]))
+	{}else continue;
+	// check if normal is valid first before anything else
+
+	int number_neighbor=kdtree.radiusSearch(total_pointcloud_->points[i], max_distance_between_two_points ,pointIdxRadiusSearch, pointRadiusSquaredDistance);
+	if (number_neighbor >= neighbooring_for_min_density )
+	{
+	  int current_beam =total_vpointcloud_->points[i].ring;
+	  //int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
+	  // we form subclouds for choosing nearest points seen by other points' beam
+	  for (int beam_j = std::max(0,current_beam-beam_no_max_diff); beam_j<=std::min(15,current_beam+beam_no_max_diff); beam_j++)
+	  {
+
+		//for (int j=1;j<number_neighbor;++j)
+		//int j_count = 0;
+		// WARNING: -1 means no this beam closest view...
+		int nearest_beam_index= -1;
+		// WARNING assuming big distanc will never reach...
+		float closest_dist_squared = 1e11;
+		std::vector<float> point(3), nearest_vec(3);
+		for (int j=number_neighbor-1;j>=1;--j)
+		{
+		  int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
+
+		  if (beam_j == neighbor_beam )
+		  {
+		    int neighbor_idx = pointIdxRadiusSearch[j];
+		    point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
+		    point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
+		    point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
+		    float t_dist_squared = point[0] * point[0] + point[1] * point[1] + point[2] * point[2];
+
+		    if (closest_dist_squared > t_dist_squared )
+		    {
+		      closest_dist_squared = t_dist_squared;
+		      nearest_beam_index = pointIdxRadiusSearch[j];
+		      nearest_vec[0] = point[0];nearest_vec[1] = point[1];nearest_vec[2] = point[2];
+		    }
+		  }
+		}
+		//if (j_count >= max_relations_per_i) break;
+
+		//int current_beam =total_vpointcloud_->points[i].ring;
+		//int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
+		//if(abs(current_beam-neighbor_beam)<beam_no_max_diff )
+		//{
+		//int neighbor_idx = pointIdxRadiusSearch[j];
+
+		// check if this relation has been computed before
+		// if not we do computation and set it to computed
+		//omp_set_lock(&writelock);
+		//bool computed_before = false;
+		//for ( auto& t : takens [neighbor_idx ]) {if (t==i) {computed_before = true; break;}}
+		//if (false == computed_before) takens[neighbor_idx ].push_back(i);
+		//omp_unset_lock(&writelock);
+		//if (computed_before) continue;
+
+		//std::vector<float> point(3);
+		//point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
+		//point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
+		//point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
+
+		//if (nearest_beam_index != -1 && closest_dist_squared < max_dist_squared)
+		if (nearest_beam_index != -1 && closest_dist_squared < max_dist_squared)
+		{
+		  //std::vector<float> normal(3); float curv;
+		  ////float nx, ny, nz;
+		  //std::vector<int> indices;
+		  //std::vector<float> dists;
+		  //int number_neighbor=kdtree.nearestKSearch(total_pointcloud_->points[i], neighbooring_for_normal_est , indices, dists);
+		  ////ne_.computePointNormal(total_pointcloud_, pointIdxRadiusSearch, normal[0], normal[1], normal[2], curv);
+		  //ne_.computePointNormal(*total_pointcloud_, indices, normal[0], normal[1], normal[2], curv);
+		  //normal[0]=cloud_normals->points[i].normal_x;
+		  //normal[1]=cloud_normals->points[i].normal_y;
+		  //normal[2]=cloud_normals->points[i].normal_z;
+		  //LOG(INFO) << point[0] << " " << normal[0] << " " << point[1] << " " << normal[1] << " " << point[2] << " " << normal[2];
+		  //
+		  //if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2]))
+		  //{
+		    //float mag = point[0] * normal[0] + point[1] * normal[1] + point[2] * normal[2];
+		    float mag = nearest_vec[0] * normal[0] + nearest_vec[1] * normal[1] + nearest_vec[2] * normal[2];
+		    Js[i] += mag * mag;
+		    //j_count++;
+		  //}
+		
+		//else 
+		  //continue;
+		//LOG(INFO) << mag;
+		//break;
+		}
+	    //}
+	  }
+	}
+      }
   }
 
     
@@ -327,6 +397,27 @@ void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
     index++;
   }
   ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", pcl_pointclouds_.size(), odometry_poses_.size(), total_pointcloud_->size());
+
+  if (use_ref_){
+      index = 0; ref_total_vpointcloud_->clear(); ref_total_pointcloud_->clear();
+      for (auto curr_pc : ref_pcl_pointclouds_)
+      {
+	PointCloud transformed_pointcloud;
+	PointCloud t_pc; pcl::copyPointCloud(curr_pc, t_pc);
+	pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, ref_odometry_poses_[index]);
+
+	VPointCloud transformed_vpointcloud(curr_pc);
+	pcl::copyPointCloud(transformed_pointcloud, transformed_vpointcloud);
+
+	//pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, tf::Pose(odometry_poses[index]) * tf::Pose(tf::Quaternion(), tf::Vector3()));
+	// use below if need to correct...
+	//pcl_ros::transformPointCloud(t_pc, transformed_pointcloud, correction_after * odometry_poses[index] * correction_before );
+	*ref_total_vpointcloud_ += transformed_vpointcloud;
+	*ref_total_pointcloud_  += transformed_pointcloud;
+	index++;
+      }
+      ROS_INFO("Clouds size: %lu, odometry_poses size: %lu, total_points: %lu", ref_pcl_pointclouds_.size(), ref_odometry_poses_.size(), ref_total_pointcloud_->size());
+  }
 }
 
 //void Accumulator::CopyVCloudToCloud()
@@ -346,11 +437,13 @@ int main(int argc, char** argv) {
 
   ros::init(argc, argv, "trajProcess");
   ros::NodeHandle nh, pnh("~");
-  bool b_opt_publish_pc, b_opt_calibrate;
-  std::string pc_topic;
+  bool b_opt_publish_pc, b_opt_calibrate, b_opt_use_ref;
+  std::string pc_topic, ref_topic;
   pnh.param("publish_pc", b_opt_publish_pc, false);
+  pnh.param("use_ref", b_opt_use_ref, false);
   pnh.param<std::string>("pc_topic"  , pc_topic, "/velodyne_right/velodyne_points");
   pnh.param("calibrate", b_opt_calibrate, false);
+  pnh.param<std::string>("ref_topic"  , ref_topic, "/velodyne_left/velodyne_points");
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
 
@@ -376,9 +469,10 @@ int main(int argc, char** argv) {
   topics.push_back(pc_topic);
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
-  std::vector<tf::Pose> odometry_poses;
-  std::vector<VPointCloud> pcl_pointclouds;
+  //std::vector<tf::Pose> odometry_poses;
+  //std::vector<VPointCloud> pcl_pointclouds;
   Accumulator accumulator;
+  accumulator.setUseRef(b_opt_use_ref);
   //pcl::VoxelGrid<VPointCloud> sor;
 
   for (const rosbag::MessageInstance& message : view) {
@@ -424,6 +518,65 @@ int main(int argc, char** argv) {
       LOG(INFO) << tracking_to_map;
     }
 
+    ROS_INFO("Time message: %.10f %s points:%lu", pc2_msg->header.stamp.toSec(),
+	transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp))?"has":"not", pcl_cloud.size());
+  }
+
+
+    if (b_opt_use_ref) {
+    
+      std::vector<std::string> ref_topics;
+      ref_topics.push_back(ref_topic);
+      rosbag::View ref_view(bag, rosbag::TopicQuery(ref_topics));
+
+      for (const rosbag::MessageInstance& message : ref_view) {
+	sensor_msgs::PointCloud2::ConstPtr pc2_msg = message.instantiate<sensor_msgs::PointCloud2>();
+	VPointCloud pcl_cloud;
+	pcl::fromROSMsg(*pc2_msg, pcl_cloud);
+
+	// TODO: Put additional spacing condition here...
+	if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
+	{
+	  PointCloud pcl_cloud_noNaN;
+	  std::vector<int> indices;
+	  PointCloud::Ptr t_ppcl_cloud(new PointCloud());
+	  pcl::copyPointCloud(pcl_cloud, *t_ppcl_cloud);
+	  pcl::removeNaNFromPointCloud(*t_ppcl_cloud, pcl_cloud_noNaN, indices);
+	  VPointCloud pcl_vcloud_noNaN;
+	  pcl::copyPointCloud(pcl_cloud, indices, pcl_vcloud_noNaN);
+	  //pcl_pointclouds.push_back( pcl_vcloud_noNaN);
+
+	  // passthorugh
+	  t_ppcl_cloud->clear();
+	  pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
+	  pcl::PassThrough<pcl::PointXYZ> pass;
+	  pass.setInputCloud (t_ppcl_cloud);
+	  pass.setFilterFieldName ("x");
+	  pass.setFilterLimits (0.6, 10000.0);
+	  indices.clear();
+	  pass.filter (indices);
+	  VPointCloud pcl_vcloud_noNaN_passthrough;
+	  pcl::copyPointCloud(pcl_vcloud_noNaN, indices, pcl_vcloud_noNaN_passthrough);
+
+	  //accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
+	  accumulator.GetRefVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+
+	  const cartographer::transform::Rigid3d tracking_to_map =
+	    transform_interpolation_buffer.Lookup(cartographer_ros::FromRos(pc2_msg->header.stamp));
+	  // TO DO plug in transform param here...
+	  //const cartographer::transform::Rigid3d sensor_to_tracking;
+	  //const cartographer::transform::Rigid3f sensor_to_map =
+	  //(tracking_to_map * sensor_to_tracking).cast<float>();
+	  //odometry_poses.push_back(tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
+	  accumulator.GetRefOdometryPoses()->push_back( tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
+	  LOG(INFO) << tracking_to_map;
+	}
+	ROS_INFO("Time message: %.10f %s points:%lu", pc2_msg->header.stamp.toSec(),
+	    transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp))?"has":"not", pcl_cloud.size());
+      }
+    }
+    bag.close();
+
     // test ring info
     //int no_of_points = 0;
     //for (VPointCloud::iterator p=pcl_cloud.begin(); p!= pcl_cloud.end(); p++)
@@ -432,10 +585,6 @@ int main(int argc, char** argv) {
     //}
     //ROS_INFO("no_of_points: %d", no_of_points);
 
-    ROS_INFO("Time message: %.10f %s points:%lu", pc2_msg->header.stamp.toSec(),
-      transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp))?"has":"not", pcl_cloud.size());
-  }
-  bag.close();
 
 #if 0
   //const tf::Transform correction_after  = tf::Transform( tf::createQuaternionFromRPY(1.570795,0,1.570795)).inverse();
@@ -487,7 +636,8 @@ int main(int argc, char** argv) {
     for (int k=0; k<20 && ros::ok() ; k++)
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, k-10, 0);
       //jexecutor.J_calc_wEuler_andLog(0,0,0,0, static_cast<double>(k*0.25-2.5), 0);
-      jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(7.5+k*0.25), 0);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(7.5+k*0.25), 0);
+      jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(0+k), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(9.5+k*0.25), 0);
     double end_time = ros::Time::now().toSec();
     LOG(INFO) << "End at:" << end_time;
