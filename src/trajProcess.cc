@@ -70,7 +70,7 @@ DEFINE_string(bag_filenames, "",
 class Accumulator
 {
   public:
-    Accumulator() : use_ref_(false){
+    Accumulator() : use_ref_(false), use_beamlayer_contraint_(true){
       tree_ = pcl::search::KdTree<pcl::PointXYZ>::Ptr(new pcl::search::KdTree<pcl::PointXYZ> ());
       total_vpointcloud_ = VPointCloud::Ptr(new VPointCloud());
       total_pointcloud_  =  PointCloud::Ptr(new  PointCloud());
@@ -96,6 +96,7 @@ class Accumulator
     float J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw);
 
     void setUseRef(const bool & use_ref){use_ref_ = use_ref;};
+    void setBeamlayerContraint(const bool & use_beamlayer_contraint){use_beamlayer_contraint_ = use_beamlayer_contraint;};
 
   private:
     std::vector<tf::Pose> odometry_poses_;
@@ -115,6 +116,7 @@ class Accumulator
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne_;
 
     bool use_ref_;
+    bool use_beamlayer_contraint_;
 };
 
 class JExecutor
@@ -275,20 +277,20 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
 		{
 		  int neighbor_beam=total_vpointcloud_->points[ pointIdxRadiusSearch[j] ].ring;
 
-		  if (beam_j == neighbor_beam )
+		  if (beam_j == neighbor_beam  || false == use_beamlayer_contraint_)
 		  {
-		    int neighbor_idx = pointIdxRadiusSearch[j];
-		    point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
-		    point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
-		    point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
-		    float t_dist_squared = point[0] * point[0] + point[1] * point[1] + point[2] * point[2];
+		      int neighbor_idx = pointIdxRadiusSearch[j];
+		      point[0]=total_pointcloud_->points[i].x-total_pointcloud_->points[neighbor_idx].x;
+		      point[1]=total_pointcloud_->points[i].y-total_pointcloud_->points[neighbor_idx].y;
+		      point[2]=total_pointcloud_->points[i].z-total_pointcloud_->points[neighbor_idx].z;
+		      float t_dist_squared = point[0] * point[0] + point[1] * point[1] + point[2] * point[2];
 
-		    if (closest_dist_squared > t_dist_squared )
-		    {
-		      closest_dist_squared = t_dist_squared;
-		      nearest_beam_index = pointIdxRadiusSearch[j];
-		      nearest_vec[0] = point[0];nearest_vec[1] = point[1];nearest_vec[2] = point[2];
-		    }
+		      if (closest_dist_squared > t_dist_squared )
+		      {
+			closest_dist_squared = t_dist_squared;
+			nearest_beam_index = pointIdxRadiusSearch[j];
+			nearest_vec[0] = point[0];nearest_vec[1] = point[1];nearest_vec[2] = point[2];
+		      }
 		  }
 		}
 		//if (j_count >= max_relations_per_i) break;
@@ -438,12 +440,15 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "trajProcess");
   ros::NodeHandle nh, pnh("~");
   bool b_opt_publish_pc, b_opt_calibrate, b_opt_use_ref;
+  bool b_opt_use_beamlayer, b_opt_use_passthrough;
   std::string pc_topic, ref_topic;
   pnh.param("publish_pc", b_opt_publish_pc, false);
   pnh.param("use_ref", b_opt_use_ref, false);
   pnh.param<std::string>("pc_topic"  , pc_topic, "/velodyne_right/velodyne_points");
   pnh.param("calibrate", b_opt_calibrate, false);
   pnh.param<std::string>("ref_topic"  , ref_topic, "/velodyne_left/velodyne_points");
+  pnh.param("use_beamlayer", b_opt_use_beamlayer, true);
+  pnh.param("use_passthrough", b_opt_use_passthrough, false);
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
   ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
@@ -474,6 +479,7 @@ int main(int argc, char** argv) {
   //std::vector<VPointCloud> pcl_pointclouds;
   Accumulator accumulator;
   accumulator.setUseRef(b_opt_use_ref);
+  accumulator.setBeamlayerContraint(b_opt_use_beamlayer);
   //pcl::VoxelGrid<VPointCloud> sor;
 
   for (const rosbag::MessageInstance& message : view) {
@@ -505,8 +511,10 @@ int main(int argc, char** argv) {
       VPointCloud pcl_vcloud_noNaN_passthrough;
       pcl::copyPointCloud(pcl_vcloud_noNaN, indices, pcl_vcloud_noNaN_passthrough);
 
-      //accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
-      accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+      if (b_opt_use_passthrough)
+	accumulator.GetRefVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+      else
+	accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
 
       const cartographer::transform::Rigid3d tracking_to_map =
 	transform_interpolation_buffer.Lookup(cartographer_ros::FromRos(pc2_msg->header.stamp));
@@ -559,8 +567,10 @@ int main(int argc, char** argv) {
 	  VPointCloud pcl_vcloud_noNaN_passthrough;
 	  pcl::copyPointCloud(pcl_vcloud_noNaN, indices, pcl_vcloud_noNaN_passthrough);
 
-	  //accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
-	  accumulator.GetRefVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+	  if (b_opt_use_passthrough)
+	      accumulator.GetRefVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+	  else
+	      accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
 
 	  const cartographer::transform::Rigid3d tracking_to_map =
 	    transform_interpolation_buffer.Lookup(cartographer_ros::FromRos(pc2_msg->header.stamp));
@@ -621,9 +631,12 @@ int main(int argc, char** argv) {
     //accumulator.GetTotalPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalPointCloud()->header.stamp    = ros::Time::now().toNSec();
     //pc_pub.publish(*accumulator.GetTotalPointCloud());
-    //accumulator.AccumulateIRWithTransform(tf::transform());
+    //accumulator.AccumulateIRWithTransform(tf::Transform());
+    //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, 0), tf::Vector3(0,0,0)));
+    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, M_PI), tf::Vector3(2.735,0,-1.376)));
+    //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, -184.75*M_PI/180), tf::Vector3(2.735,0,-1.376)));
     //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 9.75*M_PI/180, 0), tf::Vector3(0,-2.455,0)));
-    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 9.75*M_PI/180, 0), tf::Vector3(0,-1.98,0)));
+    //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0.25*M_PI/180, 9.75*M_PI/180, 3.5*M_PI/180), tf::Vector3(0.25,-1.98,0.175)));
     accumulator.GetTotalVPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
     pc_pub.publish(*accumulator.GetTotalVPointCloud());
@@ -639,14 +652,19 @@ int main(int argc, char** argv) {
     JExecutor jexecutor(&accumulator);
     double begin_time = ros::Time::now().toSec();
     LOG(INFO) << "Begin at:" << begin_time;
-    for (int k=0; k<20 && ros::ok() ; k++)
+    for (int k=0; k<25 && ros::ok() ; k++)
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, k-10, 0);
       //jexecutor.J_calc_wEuler_andLog(0,0,0,0, static_cast<double>(k*0.25-2.5), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(7.5+k*0.25), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(0+k), 0);
       //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, static_cast<double>(9.5+k*0.25), 0);
-      //jexecutor.J_calc_wEuler_andLog(0,-1.98-0.75 + k*0.025,0,0, 9.75, 0);
-      jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, 9.75, 0-2.5 + k*0.25);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98-0.25 + k*0.025,0,0, 9.75, 3.5);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0, 9.75, 0+2.5 + k*0.25);
+      //jexecutor.J_calc_wEuler_andLog(0,-1.98,0,0-2.5 + k * 0.25, 9.75, 3.5);
+      //jexecutor.J_calc_wEuler_andLog(0+0.25 + k*0.025,-1.98,0, 0.25, 9.75, 3.5);
+      //jexecutor.J_calc_wEuler_andLog(0.25,-1.98,0-0.25+ k*0.025, 0.25, 9.75, 3.5);
+
+      jexecutor.J_calc_wEuler_andLog(2.735,0,-1.376, 0.0, 0, -3 - 180 - k*0.25);
     double end_time = ros::Time::now().toSec();
     LOG(INFO) << "End at:" << end_time;
     LOG(INFO) << "Time elapsed: " << end_time - begin_time;
