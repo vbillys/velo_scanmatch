@@ -10,6 +10,10 @@
 #include "transform.h"
 
 #include "nav_msgs/Odometry.h"
+#include "sensor_msgs/Imu.h"
+#include "std_msgs/Int32.h"
+
+#include "odom_calc.h"
 
 DEFINE_string(bag_filenames, "",
     "Bags to process, must be in the same order as the trajectories "
@@ -17,6 +21,10 @@ DEFINE_string(bag_filenames, "",
 
 DEFINE_string(odom_stream_filename, "",
     "File to output to contain the timestamped odometry data.");
+
+DEFINE_bool(process_raw, false, "Include 'advanced' using raw encoder and imu data");
+
+using namespace std;
 
 int main(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
@@ -31,27 +39,148 @@ int main(int argc, char** argv) {
   std::string pc_topic;
   pnh.param<std::string>("odom_topic"  , pc_topic, "/imuodom");
 
+  // for raw processing
+  std::string encoder_left_topic, encoder_right_topic, imu_topic;
+  pnh.param<std::string>("encoder_left_topic"  , encoder_left_topic, "/encoder_left");
+  pnh.param<std::string>("encoder_right_topic"  , encoder_right_topic, "/encoder_right");
+  pnh.param<std::string>("imu_topic"  , imu_topic, "/an_device/Imu");
+  double wtw_distance, tick_distance;
+  pnh.param<double>("wtw_distance" , wtw_distance , 1.56 );
+  pnh.param<double>("tick_distance" , tick_distance , 0.00206);
+
+  enum StringCode {
+    eImu,
+    eEncoderLeft,
+    eEncoderRight
+  };
+  std::map<std::string, StringCode > s_mapStringToStringCode =
+  {
+      { imu_topic, eImu },
+      { encoder_left_topic, eEncoderLeft },
+      { encoder_right_topic, eEncoderRight }
+  };
+
   rosbag::Bag bag;
   bag.open(FLAGS_bag_filenames, rosbag::bagmode::Read);
   ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
 
   std::vector<std::string> topics;
-  topics.push_back(pc_topic);
+  if (FLAGS_process_raw)
+  {
+      topics.push_back(encoder_left_topic);
+      topics.push_back(encoder_right_topic);
+      topics.push_back(imu_topic);
+  }
+  else
+  {
+      topics.push_back(pc_topic);
+  }
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   cartographer::mapping::proto::Trajectory g_traj;
   std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds;
+  if (FLAGS_process_raw)
+  {
+      bool imu_initialized = false;
+      bool encoder_harvest = false;
+      bool encoder_right_sampled = false;
+      bool encoder_left_sampled = false;
+      double last_imu_angular_z_vel;
+      int encoder_left_data, encoder_right_data;
+      ::ros::Time last_stamp_encoder_left, last_stamp_encoder_right;
 
-  for (const rosbag::MessageInstance& message : view) {
-    nav_msgs::Odometry::ConstPtr odom_msg = message.instantiate<nav_msgs::Odometry>();
+      int delta_l_enc = 0;
+      int delta_r_enc = 0;
+      int l_enc_prev = 0;
+      int r_enc_prev = 0;
+      bool first_time = true;
+      double pose_Yaw = 0;
+      double pose_X = 0;
+      double pose_Y = 0;
 
-    auto new_node = g_traj.add_node();
-    new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odom_msg->header.stamp)));
+      OdomCalculator odom_calc;
+      odom_calc.setEncoderOnly(true);
 
-    proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z))));
-    cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
-    new_node->set_allocated_pose(t_proto_rigid3d);
-    ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), odom_msg->header.stamp.toSec());
+      for (const rosbag::MessageInstance& message : view) {
+	  StringCode topic_key = s_mapStringToStringCode[message.getTopic()];
+
+	  sensor_msgs::Imu::Ptr imu_msg;
+	  std_msgs::Int32::Ptr encoder_left_msg;
+	  std_msgs::Int32::Ptr encoder_right_msg;
+
+	  switch (topic_key)
+	  {
+	      case eImu:
+		imu_msg = message.instantiate<sensor_msgs::Imu>();
+		last_imu_angular_z_vel = imu_msg->angular_velocity.z;
+		imu_initialized = true;
+		//ROS_INFO("imu: %f",  imu_msg->header.stamp.toSec());
+		break;
+	      case eEncoderLeft:
+		encoder_left_msg = message.instantiate<std_msgs::Int32>();
+		encoder_left_data = encoder_left_msg->data;
+		last_stamp_encoder_left = message.getTime();
+		encoder_left_sampled = true;
+		//ROS_INFO("left enc: %d %f", encoder_left_msg->data, message.getTime().toSec());
+		break;
+	      case eEncoderRight:
+		encoder_right_msg = message.instantiate<std_msgs::Int32>();
+		encoder_right_data = encoder_right_msg->data;
+		last_stamp_encoder_right = message.getTime();
+		encoder_right_sampled = true;
+		//ROS_INFO("right enc: %d %f", encoder_right_msg->data, message.getTime().toSec());
+		break;
+	      default:
+		break;
+	  }
+	  //we do simple check, if both encoders are inited, we check time diff
+	  // if time diff too big, we drop the older encoder data
+	  if (encoder_right_sampled && encoder_left_sampled)
+	  {
+	      if (false == encoder_harvest)
+	      {
+		  if (last_stamp_encoder_left.toSec() - last_stamp_encoder_right.toSec() >= 0.005) //assuming 100 Hz
+		  {
+			encoder_right_sampled = false;
+		  }
+		  else if (last_stamp_encoder_right.toSec() - last_stamp_encoder_left.toSec() >= 0.005) //assuming 100 Hz
+		  {
+			encoder_left_sampled = false;
+		  }
+		  else 
+			encoder_harvest = true;
+	      }
+
+	      if (encoder_harvest)
+	      {
+		  odom_calc.Process(last_imu_angular_z_vel, encoder_left_data, encoder_right_data, last_stamp_encoder_left);
+		  auto new_node = g_traj.add_node();
+		  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
+
+		  proto_rigid3ds.push_back(cartographer::transform::ToProto(odom_calc.GetRigid3d()));
+		  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+		  new_node->set_allocated_pose(t_proto_rigid3d);
+		  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
+
+		  encoder_right_sampled = false;
+		  encoder_left_sampled = false;
+	      }
+	  }
+      }
+  }
+  else
+  {
+      for (const rosbag::MessageInstance& message : view) {
+	  nav_msgs::Odometry::ConstPtr odom_msg = message.instantiate<nav_msgs::Odometry>();
+
+	  auto new_node = g_traj.add_node();
+	  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odom_msg->header.stamp)));
+
+	  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z))));
+	  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+	  new_node->set_allocated_pose(t_proto_rigid3d);
+	  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), odom_msg->header.stamp.toSec());
+      }
   }
 
   if (!FLAGS_odom_stream_filename.empty()){
