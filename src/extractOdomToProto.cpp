@@ -48,6 +48,15 @@ int main(int argc, char** argv) {
   pnh.param<double>("wtw_distance" , wtw_distance , 1.56 );
   pnh.param<double>("tick_distance" , tick_distance , 0.00206);
 
+  double sensor_pose[6];
+  pnh.param<double>("sensor_pose_x" , sensor_pose[0] , 0.0);
+  pnh.param<double>("sensor_pose_y" , sensor_pose[1] , 0.0);
+  pnh.param<double>("sensor_pose_z" , sensor_pose[2] , 0.0);
+  pnh.param<double>("sensor_pose_roll" , sensor_pose[3] , 0.0);
+  pnh.param<double>("sensor_pose_pitch" , sensor_pose[4] , 0.0);
+  pnh.param<double>("sensor_pose_yaw" , sensor_pose[5] , 0.0);
+  cartographer::transform::Rigid3d sensor_pose_rigid3d = cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(sensor_pose[0], sensor_pose[1], sensor_pose[2]), cartographer::transform::RollPitchYaw(sensor_pose[3],sensor_pose[4],sensor_pose[5]));
+
   enum StringCode {
     eImu,
     eEncoderLeft,
@@ -158,11 +167,12 @@ int main(int argc, char** argv) {
 		      auto new_node = g_traj.add_node();
 		      new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
 
-		      proto_rigid3ds.push_back(cartographer::transform::ToProto(odom_calc.GetRigid3d()));
+		      auto t_odom_pose = sensor_pose_rigid3d.inverse() * odom_calc.GetRigid3d() * sensor_pose_rigid3d; 
+		      proto_rigid3ds.push_back(cartographer::transform::ToProto(t_odom_pose));
 		      cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 		      new_node->set_allocated_pose(t_proto_rigid3d);
 
-		      LOG(INFO) << odom_calc.GetRigid3d();
+		      LOG(INFO) << t_odom_pose;
 		      ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
 
 		  }
@@ -181,7 +191,7 @@ int main(int argc, char** argv) {
 	  auto new_node = g_traj.add_node();
 	  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odom_msg->header.stamp)));
 
-	  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z))));
+	  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(sensor_pose_rigid3d.inverse() * cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ));
 	  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 	  new_node->set_allocated_pose(t_proto_rigid3d);
 	  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), odom_msg->header.stamp.toSec());

@@ -17,14 +17,14 @@ OdomCalculator::OdomCalculator():
 }
 
 #define FILTER_THRESHOLD 5000 //1500
-void OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time)
+bool OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time)
 {
   if (first_time_){
     // cache value only 
     l_enc_prev_ = enc_l_val;
     r_enc_prev_ = enc_r_val;
     first_time_ = false;
-    return;
+    return false;
   }
   int l_enc = enc_l_val;
   int r_enc = enc_r_val;
@@ -66,13 +66,14 @@ void OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const 
   double delta_v		= (l_wd + r_wd)/2.0;
   if (encoder_only_)
   {
-      double delta_x		= delta_v * cos(pose_Yaw_ + delta_thet/2.0);
-      double delta_y		= delta_v * sin(pose_Yaw_ + delta_thet/2.0);
+      delta_x		= delta_v * cos(pose_Yaw_ + delta_thet/2.0);
+      delta_y		= delta_v * sin(pose_Yaw_ + delta_thet/2.0);
+      LOG(INFO) << "delta_x: " << delta_x << " delta_y: " << delta_y;
   }
   else
   {
-      double delta_x		= delta_v * cos(pose_Yaw_ + imu_delta_thet/2.0);
-      double delta_y		= delta_v * sin(pose_Yaw_ + imu_delta_thet/2.0);
+      delta_x		= delta_v * cos(pose_Yaw_ + imu_delta_thet/2.0);
+      delta_y		= delta_v * sin(pose_Yaw_ + imu_delta_thet/2.0);
   }
   //double delta_x		= delta_v * cos(pose_Yaw_ + delta_thet/2.0);
   //double delta_y		= delta_v * sin(pose_Yaw_ + delta_thet/2.0);
@@ -88,6 +89,7 @@ void OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const 
   //pose_Yaw_ += delta_thet;
   pose_X_   += delta_x;
   pose_Y_   += delta_y;
+  LOG(INFO) << "Pose_X: " << pose_X_ << " Pose_Y: " << pose_Y_;
 
   pose_stamp_ = curr_ros_time;
 
@@ -101,6 +103,7 @@ void OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const 
   ::geometry_msgs::Quaternion imu_odom_quat = ::tf::createQuaternionMsgFromYaw(pose_Yaw_);
   //ROS_INFO("imu_pose_Yaw: %.6f", imu_pose_Yaw);
   odom_imu_.pose.pose.orientation = imu_odom_quat;
+  return true;
 }
 
 const cartographer::transform::Rigid3d & OdomCalculator::GetRigid3d()

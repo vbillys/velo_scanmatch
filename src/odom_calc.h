@@ -10,7 +10,7 @@ class OdomCalculator
     OdomCalculator(const OdomCalculator&) = delete;
     OdomCalculator& operator=(const OdomCalculator&) = delete;
 
-    void Process(const double &imu_val, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time);
+    bool Process(const double &imu_val, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time);
     const nav_msgs::Odometry& GetOdometryMsg()
     {
 	return odom_imu_;
