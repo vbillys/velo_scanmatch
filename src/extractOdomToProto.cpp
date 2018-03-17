@@ -153,14 +153,19 @@ int main(int argc, char** argv) {
 
 	      if (encoder_harvest)
 	      {
-		  odom_calc.Process(last_imu_angular_z_vel, encoder_left_data, encoder_right_data, last_stamp_encoder_left);
-		  auto new_node = g_traj.add_node();
-		  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
+		  if (odom_calc.Process(last_imu_angular_z_vel, encoder_left_data, encoder_right_data, last_stamp_encoder_left))
+		  {
+		      auto new_node = g_traj.add_node();
+		      new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
 
-		  proto_rigid3ds.push_back(cartographer::transform::ToProto(odom_calc.GetRigid3d()));
-		  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
-		  new_node->set_allocated_pose(t_proto_rigid3d);
-		  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
+		      proto_rigid3ds.push_back(cartographer::transform::ToProto(odom_calc.GetRigid3d()));
+		      cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+		      new_node->set_allocated_pose(t_proto_rigid3d);
+
+		      LOG(INFO) << odom_calc.GetRigid3d();
+		      ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
+
+		  }
 
 		  encoder_right_sampled = false;
 		  encoder_left_sampled = false;
