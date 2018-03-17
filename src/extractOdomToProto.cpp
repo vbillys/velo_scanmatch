@@ -12,6 +12,7 @@
 #include "nav_msgs/Odometry.h"
 #include "sensor_msgs/Imu.h"
 #include "std_msgs/Int32.h"
+#include "sensor_msgs/NavSatFix.h"
 
 #include "odom_calc.h"
 
@@ -23,6 +24,7 @@ DEFINE_string(odom_stream_filename, "",
     "File to output to contain the timestamped odometry data.");
 
 DEFINE_bool(process_raw, false, "Include 'advanced' using raw encoder and imu data");
+DEFINE_bool(gps_mode, false, "Using GNSS data to extract");
 
 using namespace std;
 
@@ -38,6 +40,8 @@ int main(int argc, char** argv) {
 
   std::string pc_topic;
   pnh.param<std::string>("odom_topic"  , pc_topic, "/imuodom");
+  std::string gnss_topic;
+  pnh.param<std::string>("gnss_topic"  , gnss_topic, "/an_device/NavSatFix_metric");
 
   // for raw processing
   std::string encoder_left_topic, encoder_right_topic, imu_topic;
@@ -60,13 +64,15 @@ int main(int argc, char** argv) {
   enum StringCode {
     eImu,
     eEncoderLeft,
-    eEncoderRight
+    eEncoderRight,
+    eGnss
   };
   std::map<std::string, StringCode > s_mapStringToStringCode =
   {
       { imu_topic, eImu },
       { encoder_left_topic, eEncoderLeft },
-      { encoder_right_topic, eEncoderRight }
+      { encoder_right_topic, eEncoderRight },
+      { gnss_topic, eGnss }
   };
 
   rosbag::Bag bag;
@@ -74,7 +80,12 @@ int main(int argc, char** argv) {
   ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
 
   std::vector<std::string> topics;
-  if (FLAGS_process_raw)
+  if (FLAGS_gps_mode)
+  {
+      topics.push_back(gnss_topic);
+      topics.push_back(imu_topic);
+  }
+  else if (FLAGS_process_raw)
   {
       topics.push_back(encoder_left_topic);
       topics.push_back(encoder_right_topic);
@@ -88,7 +99,77 @@ int main(int argc, char** argv) {
 
   cartographer::mapping::proto::Trajectory g_traj;
   std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds;
-  if (FLAGS_process_raw)
+
+  if (FLAGS_gps_mode)
+  {
+      bool gps_harvest = false;
+      bool gnss_sampled = false;
+      bool imu_sampled = false;
+      ::ros::Time last_stamp_imu , last_stamp_gnss;
+
+      sensor_msgs::Imu::Ptr imu_msg;
+      sensor_msgs::NavSatFix::Ptr gnss_msg;
+
+      for (const rosbag::MessageInstance& message : view) {
+	  StringCode topic_key = s_mapStringToStringCode[message.getTopic()];
+
+	  switch (topic_key)
+	  {
+	      case eImu:
+		  imu_msg = message.instantiate<sensor_msgs::Imu>();
+		  imu_sampled = true;
+		  last_stamp_imu = message.getTime();
+		  //ROS_INFO("imu: %f",  imu_msg->header.stamp.toSec());
+		  //ROS_INFO("imu: %f",  message.getTime().toSec());
+		  break;
+	      case eGnss:
+		  gnss_msg = message.instantiate<sensor_msgs::NavSatFix>();
+		  gnss_sampled = true;
+		  last_stamp_gnss = message.getTime();
+		  //ROS_INFO("gnss: %f",  gnss_msg->header.stamp.toSec());
+		  //ROS_INFO("gnss: %f",  message.getTime().toSec());
+		  break;
+	      default:
+		  break;
+	  }
+//#if 0
+	  //we do simple check, if both gnss and imu are inited, we check time diff
+	  // if time diff too big, we drop the older data
+	  if (imu_sampled && gnss_sampled)
+	  {
+	      if (false == gps_harvest)
+	      {
+		  if (last_stamp_gnss.toSec() - last_stamp_imu.toSec() >= 0.005) //assuming 100 Hz
+		  {
+		      imu_sampled = false;
+		  }
+		  else if (last_stamp_imu.toSec() - last_stamp_gnss.toSec() >= 0.005) //assuming 100 Hz
+		  {
+		      gnss_sampled = false;
+		  }
+		  else 
+		      gps_harvest= true;
+	      }
+
+	      if (gps_harvest)
+	      {
+		  auto new_node = g_traj.add_node();
+		  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(gnss_msg->header.stamp)));
+
+		  //proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(sensor_pose_rigid3d.inverse() * cartographer::transform::Rigid3d::Vector(gnss_msg->longitude, gnss_msg->latitude, gnss_msg->altitude), cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+		  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(), cartographer::transform::RollPitchYaw(M_PI,0,0)) * cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(gnss_msg->longitude, gnss_msg->latitude, gnss_msg->altitude), cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+		  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+		  new_node->set_allocated_pose(t_proto_rigid3d);
+		  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), gnss_msg->header.stamp.toSec());
+		  
+		  imu_sampled = false;
+		  gnss_sampled = false;
+	      }
+	  }
+//#endif
+      }
+  }
+  else if (FLAGS_process_raw)
   {
       bool imu_initialized = false;
       bool encoder_harvest = false;
@@ -120,27 +201,27 @@ int main(int argc, char** argv) {
 	  switch (topic_key)
 	  {
 	      case eImu:
-		imu_msg = message.instantiate<sensor_msgs::Imu>();
-		last_imu_angular_z_vel = imu_msg->angular_velocity.z;
-		imu_initialized = true;
-		//ROS_INFO("imu: %f",  imu_msg->header.stamp.toSec());
-		break;
+		  imu_msg = message.instantiate<sensor_msgs::Imu>();
+		  last_imu_angular_z_vel = imu_msg->angular_velocity.z;
+		  imu_initialized = true;
+		  //ROS_INFO("imu: %f",  imu_msg->header.stamp.toSec());
+		  break;
 	      case eEncoderLeft:
-		encoder_left_msg = message.instantiate<std_msgs::Int32>();
-		encoder_left_data = encoder_left_msg->data;
-		last_stamp_encoder_left = message.getTime();
-		encoder_left_sampled = true;
-		//ROS_INFO("left enc: %d %f", encoder_left_msg->data, message.getTime().toSec());
+		  encoder_left_msg = message.instantiate<std_msgs::Int32>();
+		  encoder_left_data = encoder_left_msg->data;
+		  last_stamp_encoder_left = message.getTime();
+		  encoder_left_sampled = true;
+		  //ROS_INFO("left enc: %d %f", encoder_left_msg->data, message.getTime().toSec());
 		break;
 	      case eEncoderRight:
-		encoder_right_msg = message.instantiate<std_msgs::Int32>();
-		encoder_right_data = encoder_right_msg->data;
-		last_stamp_encoder_right = message.getTime();
-		encoder_right_sampled = true;
-		//ROS_INFO("right enc: %d %f", encoder_right_msg->data, message.getTime().toSec());
-		break;
+		  encoder_right_msg = message.instantiate<std_msgs::Int32>();
+		  encoder_right_data = encoder_right_msg->data;
+		  last_stamp_encoder_right = message.getTime();
+		  encoder_right_sampled = true;
+		  //ROS_INFO("right enc: %d %f", encoder_right_msg->data, message.getTime().toSec());
+		  break;
 	      default:
-		break;
+		  break;
 	  }
 	  //we do simple check, if both encoders are inited, we check time diff
 	  // if time diff too big, we drop the older encoder data
