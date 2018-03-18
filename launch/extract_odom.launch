@@ -1,14 +1,17 @@
 <launch>
 
   <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_odom.pbstream">-->
-  <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_z.pbstream">
-  <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu.pbstream">-->
-    <!--<param name="sensor_pose_x" value="1.565"/>-->
+  <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_z_orig.pbstream">-->
+  <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_sensor.pbstream">
+    <param name="gnss_topic" value="/an_device/NavSatFix_metric"/>
+    <param name="sensor_pose_x" value="-1.565"/>
     <!--<param name="sensor_pose_x" value="1.415"/>-->
-    <param name="sensor_pose_x" value="0"/>
+    <!--<param name="sensor_pose_x" value="-0.565"/>-->
+    <!--<param name="sensor_pose_x" value="0"/>-->
     <param name="sensor_pose_y" value="0"/>
-    <!--<param name="sensor_pose_z" value="1.698"/>-->
-    <param name="sensor_pose_z" value="0"/>
+    <!--<param name="sensor_pose_y" value="0.565"/>-->
+    <param name="sensor_pose_z" value="1.698"/>
+    <!--<param name="sensor_pose_z" value="0"/>-->
     <param name="sensor_pose_roll" value="0"/>
     <param name="sensor_pose_pitch" value="0"/>
     <param name="sensor_pose_yaw" value="0"/>
