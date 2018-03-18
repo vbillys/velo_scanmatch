@@ -1,33 +1,33 @@
 <launch>
 
   <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_odom.pbstream">-->
-  <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_local_sensor.pbstream">
+  <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_z.pbstream">
   <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu.pbstream">-->
     <!--<param name="sensor_pose_x" value="1.565"/>-->
-    <param name="sensor_pose_x" value="1.415"/>
-    <!--<param name="sensor_pose_x" value="0"/>-->
+    <!--<param name="sensor_pose_x" value="1.415"/>-->
+    <param name="sensor_pose_x" value="0"/>
     <param name="sensor_pose_y" value="0"/>
-    <param name="sensor_pose_z" value="1.698"/>
-    <!--<param name="sensor_pose_z" value="0"/>-->
+    <!--<param name="sensor_pose_z" value="1.698"/>-->
+    <param name="sensor_pose_z" value="0"/>
     <param name="sensor_pose_roll" value="0"/>
     <param name="sensor_pose_pitch" value="0"/>
     <param name="sensor_pose_yaw" value="0"/>
 
-    <!--<param name="geopp_pose_x" value="0"/>-->
-    <!--<param name="geopp_pose_y" value="0"/>-->
-    <!--<param name="geopp_pose_z" value="0"/>-->
-    <!--<param name="geopp_pose_qw" value="1"/>-->
-    <!--<param name="geopp_pose_qx" value="0"/>-->
-    <!--<param name="geopp_pose_qy" value="0"/>-->
-    <!--<param name="geopp_pose_qz" value="0"/>-->
+    <param name="geopp_pose_x" value="0"/>
+    <param name="geopp_pose_y" value="0"/>
+    <param name="geopp_pose_z" value="0"/>
+    <param name="geopp_pose_qw" value="1"/>
+    <param name="geopp_pose_qx" value="0"/>
+    <param name="geopp_pose_qy" value="0"/>
+    <param name="geopp_pose_qz" value="0"/>
 
-    <param name="geopp_pose_x" value="-2069.203693"/>
-    <param name="geopp_pose_y" value="38745.487481"/>
-    <param name="geopp_pose_z" value="612.931292"/>
-    <param name="geopp_pose_qw" value="-0.346131"/>
-    <param name="geopp_pose_qx" value="-0.008306"/>
-    <param name="geopp_pose_qy" value="-0.006097"/>
-    <param name="geopp_pose_qz" value="0.938129"/>
+    <!--<param name="geopp_pose_x" value="-2069.203693"/>-->
+    <!--<param name="geopp_pose_y" value="38745.487481"/>-->
+    <!--<param name="geopp_pose_z" value="612.931292"/>-->
+    <!--<param name="geopp_pose_qw" value="-0.346131"/>-->
+    <!--<param name="geopp_pose_qx" value="-0.008306"/>-->
+    <!--<param name="geopp_pose_qy" value="-0.006097"/>-->
+    <!--<param name="geopp_pose_qz" value="0.938129"/>-->
 
   </node>
 </launch>
