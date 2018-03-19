@@ -41,6 +41,7 @@
 #include "tf/transform_datatypes.h"
 
 #include "point_types.h"
+#include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
@@ -55,6 +56,8 @@
 #include <pcl/filters/random_sample.h>
 #include <pcl/filters/passthrough.h>
 
+#include <pcl/io/pcd_io.h>
+
 typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
@@ -66,6 +69,10 @@ DEFINE_string(traj_filename, "",
 DEFINE_string(bag_filenames, "",
     "Bags to process, must be in the same order as the trajectories "
     "in 'pose_graph_filename'.");
+DEFINE_string(pcd_filename, "",
+    "If non empty, during publish also save pcd file (Binary compressed).");
+DEFINE_bool(voxel_grid_pcd, false,
+    "Filter before save.");
 
 class Accumulator
 {
@@ -450,6 +457,16 @@ int main(int argc, char** argv) {
   pnh.param("use_beamlayer", b_opt_use_beamlayer, true);
   pnh.param("use_passthrough", b_opt_use_passthrough, false);
 
+  double sensor_pose_euler[6];
+  pnh.param<double>("sensor_pose_x", sensor_pose_euler[0], 0);
+  pnh.param<double>("sensor_pose_y", sensor_pose_euler[1], 0);
+  pnh.param<double>("sensor_pose_z", sensor_pose_euler[2], 0);
+  pnh.param<double>("sensor_pose_roll", sensor_pose_euler[3], 0);
+  pnh.param<double>("sensor_pose_pitch", sensor_pose_euler[4], 0);
+  pnh.param<double>("sensor_pose_yaw", sensor_pose_euler[5], 0);
+  float voxel_filter_leaf;
+  pnh.param<float>("voxel_filter_leaf", voxel_filter_leaf, 0.01);
+
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
   ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
 
@@ -633,16 +650,36 @@ int main(int argc, char** argv) {
     //pc_pub.publish(*accumulator.GetTotalPointCloud());
     //accumulator.AccumulateIRWithTransform(tf::Transform());
     //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, 0), tf::Vector3(0,0,0)));
-    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, M_PI), tf::Vector3(2.735,0,-1.376)));
+    //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, M_PI), tf::Vector3(2.735,0,-1.376))); //denso
     //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 0, -184.75*M_PI/180), tf::Vector3(2.735,0,-1.376)));
     //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0, 9.75*M_PI/180, 0), tf::Vector3(0,-2.455,0)));
     //accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(0.25*M_PI/180, 9.75*M_PI/180, 3.5*M_PI/180), tf::Vector3(0.25,-1.98,0.175)));
+
+    accumulator.AccumulateIRWithTransform(tf::Transform(tf::createQuaternionFromRPY(sensor_pose_euler[3], sensor_pose_euler[4], sensor_pose_euler[5]), tf::Vector3(sensor_pose_euler[0],sensor_pose_euler[1],sensor_pose_euler[2])));
     accumulator.GetTotalVPointCloud()->header.frame_id = "map";
     //accumulator.GetTotalVPointCloud()->header.stamp    = ros::Time::now().toNSec();
     pc_pub.publish(*accumulator.GetTotalVPointCloud());
     if (b_opt_use_ref){
 	accumulator.GetRefTotalVPointCloud()->header.frame_id = "map";
 	ref_pc_pub.publish(*accumulator.GetRefTotalVPointCloud());
+    }
+    if (!FLAGS_pcd_filename.empty())
+    {
+	VPointCloud::Ptr cloud_t = accumulator.GetTotalVPointCloud();
+	ROS_INFO_STREAM("Got " << cloud_t->width * cloud_t->height << " data points in frame " << cloud_t->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_t) << std::endl);
+	if (FLAGS_voxel_grid_pcd)
+	{
+	    pcl::VoxelGrid<pcl::PointXYZ> sor;
+	    PointCloud::Ptr cloud_filtered (new PointCloud ());
+	    sor.setInputCloud (accumulator.GetTotalPointCloud());
+	    sor.setLeafSize (voxel_filter_leaf, voxel_filter_leaf, voxel_filter_leaf);
+	    sor.filter (*cloud_filtered);
+	    ROS_INFO("After filtering");
+	    ROS_INFO_STREAM("Got " << cloud_filtered->width * cloud_filtered->height << " data points in frame " << cloud_filtered->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_filtered) << std::endl);
+	    pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_filtered);
+	}
+	else
+	    pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_t);
     }
     ros::spin();
   }
