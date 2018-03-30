@@ -176,17 +176,18 @@ int main(int argc, char** argv) {
 		      if (first_time)
 		      {
 			  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d()));
-			  first_rigid3d = geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->longitude, gnss_msg->latitude, gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ;
+			  first_rigid3d = geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, -gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ;
 			  first_time = false;
 		      }
 		      else
 		      {
-			  proto_rigid3ds.push_back(cartographer::transform::ToProto(first_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->longitude, gnss_msg->latitude, gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+			  proto_rigid3ds.push_back(cartographer::transform::ToProto(first_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, -gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
 		      }
 		  }
 		  else
 		  {
-		      proto_rigid3ds.push_back(cartographer::transform::ToProto(sensor_pose_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->longitude, gnss_msg->latitude, gnss_msg->altitude), cartographer::transform::RollPitchYaw(0,0,0) * cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+		      //proto_rigid3ds.push_back(cartographer::transform::ToProto(sensor_pose_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, gnss_msg->altitude), cartographer::transform::RollPitchYaw(0,0,0) * cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+		      proto_rigid3ds.push_back(cartographer::transform::ToProto( geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, -gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
 		  }
 		  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 		  new_node->set_allocated_pose(t_proto_rigid3d);
@@ -296,15 +297,35 @@ int main(int argc, char** argv) {
   }
   else
   {
+      bool first_time = true;
+      cartographer::transform::Rigid3d first_rigid3d;
+
       for (const rosbag::MessageInstance& message : view) {
 	  nav_msgs::Odometry::ConstPtr odom_msg = message.instantiate<nav_msgs::Odometry>();
 
 	  auto new_node = g_traj.add_node();
 	  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(odom_msg->header.stamp)));
 
-	  // WARNING: NEED REVISE, as 'processed' odometry may not start from zero
-	  // in this case "sensor_pose_rigid3d.inverse() *" cannot work
-	  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ));
+	  if (FLAGS_gps_mode_start_zero )
+	  {
+	      if (first_time)
+	      {
+		  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d()));
+		  first_rigid3d = geopp_pose_rigid3d * cartographer::transform::Rigid3d( cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ;
+		  first_time = false;
+	      }
+	      else
+	      {
+		  proto_rigid3ds.push_back(cartographer::transform::ToProto(first_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d( cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ));
+	      }
+	  }
+	  else
+	  {
+	      // WARNING: NEED REVISE, as 'processed' odometry may not start from zero
+	      // in this case "sensor_pose_rigid3d.inverse() *" cannot work
+	      //proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ));
+	      proto_rigid3ds.push_back(cartographer::transform::ToProto(geopp_pose_rigid3d *cartographer::transform::Rigid3d( cartographer::transform::Rigid3d::Vector(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y, odom_msg->pose.pose.position.z), cartographer::transform::Rigid3d::Quaternion(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z)) * sensor_pose_rigid3d ));
+	  }
 	  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 	  new_node->set_allocated_pose(t_proto_rigid3d);
 	  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), odom_msg->header.stamp.toSec());
