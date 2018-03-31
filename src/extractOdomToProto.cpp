@@ -181,7 +181,7 @@ int main(int argc, char** argv) {
 		      }
 		      else
 		      {
-			  proto_rigid3ds.push_back(cartographer::transform::ToProto(first_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, -gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
+			  proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d::Rotation(cartographer::transform::RollPitchYaw(M_PI,0,0)) * first_rigid3d.inverse() * geopp_pose_rigid3d * cartographer::transform::Rigid3d(  cartographer::transform::Rigid3d::Vector(gnss_msg->latitude, gnss_msg->longitude, -gnss_msg->altitude),  cartographer::transform::Rigid3d::Quaternion(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z)) * sensor_pose_rigid3d ));
 		      }
 		  }
 		  else
