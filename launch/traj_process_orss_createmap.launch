@@ -1,0 +1,16 @@
+<launch>
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/loamtraj.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag">-->
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">-->
+	<param name="/use_sim_time" value="true"/>
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/denso_calib_2_0.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag">-->
+	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_lvl18_Mar27_2018/orss_mar27_lvl18_0.pbstream -bag_filenames /home/agoy/Documents/orss_lvl18_Mar27_2018/orss_test_2018-03-27-14-28-42_0.bag -pcd_filename orss_lvl18_0_voxeled.pcd -voxel_grid_pcd">
+		<param name="pc_topic" value="/velodyne_straight/velodyne_points"/>
+		<!--<param name="pc_topic" value="/denso_packets"/>-->
+		<param name="publish_pc" value="true"/>
+		<param name="use_ref" value="false"/>
+		<param name="calibrate" value="false"/>
+		<param name="use_beamlayer" value="false"/>
+		<param name="use_passthrough" value="false"/>
+		<param name="voxel_filter_leaf" value="0.2"/>
+	</node>
+</launch>
