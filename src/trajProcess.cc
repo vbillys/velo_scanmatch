@@ -72,7 +72,9 @@ DEFINE_string(bag_filenames, "",
 DEFINE_string(pcd_filename, "",
     "If non empty, during publish also save pcd file (Binary compressed).");
 DEFINE_bool(voxel_grid_pcd, false,
-    "Filter before save.");
+    "Voxel Filter before save.");
+DEFINE_bool(random_sample_pcd, false,
+    "random Filter before save.");
 
 class Accumulator
 {
@@ -466,6 +468,8 @@ int main(int argc, char** argv) {
   pnh.param<double>("sensor_pose_yaw", sensor_pose_euler[5], 0);
   float voxel_filter_leaf;
   pnh.param<float>("voxel_filter_leaf", voxel_filter_leaf, 0.01);
+  float random_filter_percentage;
+  pnh.param<float>("random_filter_percentage", random_filter_percentage, 0.1);
 
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
   ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
@@ -667,14 +671,30 @@ int main(int argc, char** argv) {
     {
 	VPointCloud::Ptr cloud_t = accumulator.GetTotalVPointCloud();
 	ROS_INFO_STREAM("Got " << cloud_t->width * cloud_t->height << " data points in frame " << cloud_t->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_t) << std::endl);
-	if (FLAGS_voxel_grid_pcd)
+	if (FLAGS_random_sample_pcd)
+	{
+	    ::pcl::RandomSample<pcl::PointXYZ> * rand_sampler = new ::pcl::RandomSample<pcl::PointXYZ>();
+	    VPointCloud::Ptr cloud_filtered (new VPointCloud ());
+	    std::vector<int> cloud_filtered_indices;
+	    rand_sampler->setInputCloud(accumulator.GetTotalPointCloud());
+	    rand_sampler->setSample(random_filter_percentage * accumulator.GetTotalVPointCloud()->size());
+	    rand_sampler->filter(cloud_filtered_indices);
+	    pcl::copyPointCloud(*accumulator.GetTotalVPointCloud(), cloud_filtered_indices, *cloud_filtered);
+	    delete rand_sampler;
+
+	    ROS_INFO("After random sample filtering");
+	    ROS_INFO_STREAM("Got " << cloud_filtered->width * cloud_filtered->height << " data points in frame " << cloud_filtered->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_filtered) << std::endl);
+	    pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_filtered);
+	}
+	else if (FLAGS_voxel_grid_pcd)
 	{
 	    pcl::VoxelGrid<pcl::PointXYZ> sor;
 	    PointCloud::Ptr cloud_filtered (new PointCloud ());
 	    sor.setInputCloud (accumulator.GetTotalPointCloud());
 	    sor.setLeafSize (voxel_filter_leaf, voxel_filter_leaf, voxel_filter_leaf);
 	    sor.filter (*cloud_filtered);
-	    ROS_INFO("After filtering");
+
+	    ROS_INFO("After voxel grid filtering");
 	    ROS_INFO_STREAM("Got " << cloud_filtered->width * cloud_filtered->height << " data points in frame " << cloud_filtered->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_filtered) << std::endl);
 	    pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_filtered);
 	}
