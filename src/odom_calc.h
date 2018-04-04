@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/Imu.h>
 #include "transform.h"
 
 class OdomCalculator
@@ -20,6 +21,9 @@ class OdomCalculator
 	encoder_only_ = flag;
     }
     const cartographer::transform::Rigid3d & GetRigid3d();
+
+    void ProcessImuOdom(const sensor_msgs::Imu &imu, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time);
+    const cartographer::transform::Rigid3d & GetImuOdom();
   private:
     int delta_l_enc_;
     int delta_r_enc_;
@@ -36,6 +40,9 @@ class OdomCalculator
     double wtw_distance_;
     bool encoder_only_;
 
+    ::Eigen::Quaterniond current_imu_ori_;
+
+    cartographer::transform::Rigid3d imuodom_as_rigid3d_;
 };
 
 

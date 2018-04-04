@@ -23,9 +23,11 @@ DEFINE_string(bag_filenames, "",
 DEFINE_string(odom_stream_filename, "",
     "File to output to contain the timestamped odometry data.");
 
-DEFINE_bool(process_raw, false, "Include 'advanced' using raw encoder and imu data");
+DEFINE_bool(process_raw, false, "Include 'advanced' using raw encoder");
 DEFINE_bool(gps_mode, false, "Using GNSS data to extract");
 DEFINE_bool(gps_mode_start_zero, false, "Compensate first reading for GNSS to zero (odom like)");
+
+DEFINE_bool(process_imuenco, false, "Include 'advanced' using raw encoder and imu data");
 
 using namespace std;
 
@@ -39,8 +41,8 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "extractOdom");
   ros::NodeHandle nh, pnh("~");
 
-  std::string pc_topic;
-  pnh.param<std::string>("odom_topic"  , pc_topic, "/imuodom");
+  std::string odom_topic;
+  pnh.param<std::string>("odom_topic"  , odom_topic, "/imuodom");
   std::string gnss_topic;
   pnh.param<std::string>("gnss_topic"  , gnss_topic, "/an_device/NavSatFix_metric");
 
@@ -104,7 +106,7 @@ int main(int argc, char** argv) {
   }
   else
   {
-      topics.push_back(pc_topic);
+      topics.push_back(odom_topic);
   }
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
@@ -202,13 +204,14 @@ int main(int argc, char** argv) {
   }
   else if (FLAGS_process_raw)
   {
-      bool imu_initialized = false;
+      bool imu_sampled = false;
       bool encoder_harvest = false;
       bool encoder_right_sampled = false;
       bool encoder_left_sampled = false;
       double last_imu_angular_z_vel;
       int encoder_left_data, encoder_right_data;
       ::ros::Time last_stamp_encoder_left, last_stamp_encoder_right;
+      ::ros::Time last_stamp_imu ;
 
       int delta_l_enc = 0;
       int delta_r_enc = 0;
@@ -222,20 +225,23 @@ int main(int argc, char** argv) {
       OdomCalculator odom_calc;
       odom_calc.setEncoderOnly(true);
 
+      sensor_msgs::Imu::Ptr imu_msg;
+      sensor_msgs::Imu imu_msg_obj;
+      std_msgs::Int32::Ptr encoder_left_msg;
+      std_msgs::Int32::Ptr encoder_right_msg;
+
       for (const rosbag::MessageInstance& message : view) {
 	  StringCode topic_key = s_mapStringToStringCode[message.getTopic()];
-
-	  sensor_msgs::Imu::Ptr imu_msg;
-	  std_msgs::Int32::Ptr encoder_left_msg;
-	  std_msgs::Int32::Ptr encoder_right_msg;
 
 	  switch (topic_key)
 	  {
 	      case eImu:
 		  imu_msg = message.instantiate<sensor_msgs::Imu>();
 		  last_imu_angular_z_vel = imu_msg->angular_velocity.z;
-		  imu_initialized = true;
-		  //ROS_INFO("imu: %f",  imu_msg->header.stamp.toSec());
+		  imu_msg_obj = *imu_msg;
+		  imu_sampled= true;
+		  //ROS_INFO("imu: %f %f %f %f %f",  imu_msg->header.stamp.toSec(), imu_msg_obj.orientation.x, imu_msg_obj.orientation.y, imu_msg_obj.orientation.z, imu_msg_obj.orientation.w);
+		  last_stamp_imu = message.getTime();
 		  break;
 	      case eEncoderLeft:
 		  encoder_left_msg = message.instantiate<std_msgs::Int32>();
@@ -243,7 +249,7 @@ int main(int argc, char** argv) {
 		  last_stamp_encoder_left = message.getTime();
 		  encoder_left_sampled = true;
 		  //ROS_INFO("left enc: %d %f", encoder_left_msg->data, message.getTime().toSec());
-		break;
+		  break;
 	      case eEncoderRight:
 		  encoder_right_msg = message.instantiate<std_msgs::Int32>();
 		  encoder_right_data = encoder_right_msg->data;
@@ -254,43 +260,96 @@ int main(int argc, char** argv) {
 	      default:
 		  break;
 	  }
-	  //we do simple check, if both encoders are inited, we check time diff
-	  // if time diff too big, we drop the older encoder data
-	  if (encoder_right_sampled && encoder_left_sampled)
+	  if (FLAGS_process_imuenco)
 	  {
-	      if (false == encoder_harvest)
+	      //we do simple check, if both encoders are inited, we check time diff
+	      // if time diff too big, we drop the older encoder data
+	      if (encoder_right_sampled && encoder_left_sampled && imu_sampled)
 	      {
-		  if (last_stamp_encoder_left.toSec() - last_stamp_encoder_right.toSec() >= 0.005) //assuming 100 Hz
+		  if (false == encoder_harvest)
 		  {
-			encoder_right_sampled = false;
+		      if (last_stamp_encoder_left.toSec() - last_stamp_encoder_right.toSec() >= 0.005) //assuming 100 Hz
+		      {
+			  encoder_right_sampled = false;
+		      }
+		      else if (last_stamp_encoder_right.toSec() - last_stamp_encoder_left.toSec() >= 0.005) //assuming 100 Hz
+		      {
+			  encoder_left_sampled = false;
+		      }
+		      else if (last_stamp_encoder_right.toSec() - last_stamp_imu.toSec() >= 0.01 || last_stamp_imu.toSec() - last_stamp_encoder_right.toSec() >= 0.01) //assuming 50 Hz
+		      {
+			  imu_sampled = false;
+		      }
+		      else if (last_stamp_encoder_left.toSec()  - last_stamp_imu.toSec() >= 0.01 || last_stamp_imu.toSec() - last_stamp_encoder_left.toSec()  >= 0.01) //assuming 50 Hz
+		      {
+			  imu_sampled = false;
+		      }
+		      else 
+			  encoder_harvest = true;
 		  }
-		  else if (last_stamp_encoder_right.toSec() - last_stamp_encoder_left.toSec() >= 0.005) //assuming 100 Hz
-		  {
-			encoder_left_sampled = false;
-		  }
-		  else 
-			encoder_harvest = true;
-	      }
 
-	      if (encoder_harvest)
-	      {
-		  if (odom_calc.Process(last_imu_angular_z_vel, encoder_left_data, encoder_right_data, last_stamp_encoder_left))
+		  if (encoder_harvest)
 		  {
+		      odom_calc.ProcessImuOdom(imu_msg_obj, encoder_left_data, encoder_right_data, last_stamp_encoder_left);
+
 		      auto new_node = g_traj.add_node();
 		      new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
 
-		      auto t_odom_pose = geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetRigid3d() * sensor_pose_rigid3d; 
+		      auto t_odom_pose = cartographer::transform::Rigid3d::Rotation(cartographer::transform::RollPitchYaw(M_PI,0,0)) *geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetImuOdom() * sensor_pose_rigid3d; 
 		      proto_rigid3ds.push_back(cartographer::transform::ToProto(t_odom_pose));
 		      cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 		      new_node->set_allocated_pose(t_proto_rigid3d);
 
-		      LOG(INFO) << t_odom_pose;
+		      LOG(INFO) << t_odom_pose; //exit(1);
 		      ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
+		      if ( std::isnan (t_odom_pose.translation().x()) ) LOG(FATAL) << "end!";
 
+		      encoder_right_sampled = false;
+		      encoder_left_sampled = false;
+		      imu_sampled = false;
+		  }
+	      }
+	  }
+	  else
+	  {
+	      //we do simple check, if both encoders are inited, we check time diff
+	      // if time diff too big, we drop the older encoder data
+	      if (encoder_right_sampled && encoder_left_sampled)
+	      {
+		  if (false == encoder_harvest)
+		  {
+		      if (last_stamp_encoder_left.toSec() - last_stamp_encoder_right.toSec() >= 0.005) //assuming 100 Hz
+		      {
+			    encoder_right_sampled = false;
+		      }
+		      else if (last_stamp_encoder_right.toSec() - last_stamp_encoder_left.toSec() >= 0.005) //assuming 100 Hz
+		      {
+			    encoder_left_sampled = false;
+		      }
+		      else 
+			    encoder_harvest = true;
 		  }
 
-		  encoder_right_sampled = false;
-		  encoder_left_sampled = false;
+		  if (encoder_harvest)
+		  {
+		      if (odom_calc.Process(last_imu_angular_z_vel, encoder_left_data, encoder_right_data, last_stamp_encoder_left))
+		      {
+			  auto new_node = g_traj.add_node();
+			  new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
+
+			  auto t_odom_pose = geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetRigid3d() * sensor_pose_rigid3d; 
+			  proto_rigid3ds.push_back(cartographer::transform::ToProto(t_odom_pose));
+			  cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
+			  new_node->set_allocated_pose(t_proto_rigid3d);
+
+			  LOG(INFO) << t_odom_pose;
+			  ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(), last_stamp_encoder_left.toSec());
+
+		      }
+
+		      encoder_right_sampled = false;
+		      encoder_left_sampled = false;
+		  }
 	      }
 	  }
       }
