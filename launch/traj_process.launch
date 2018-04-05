@@ -3,7 +3,8 @@
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">-->
 	<param name="/use_sim_time" value="true"/>
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/denso_calib_2_0.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -pcd_filename denso_full_round_gnss_voxeled.pcd -voxel_grid_pcd">-->
-	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss_voxeled.pcd -voxel_grid_pcd">
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss.pcd ">-->
+	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss_randomized.pcd -random_sample_pcd">
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag ">-->
 		<param name="pc_topic" value="/velodyne_top/velodyne_points"/>
 		<!--<param name="pc_topic" value="/denso_packets"/>-->
@@ -13,6 +14,7 @@
 		<param name="use_beamlayer" value="false"/>
 		<param name="use_passthrough" value="false"/>
 		<param name="voxel_filter_leaf" value="0.2"/>
+		<param name="random_filter_percentage" value="0.03"/>
 
 		<param name="sensor_pose_roll" value="3.14159"/>
 		<!--<param name="sensor_pose_x" value="1.415"/>-->
