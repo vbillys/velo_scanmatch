@@ -133,14 +133,16 @@ void OdomCalculator::ProcessImuOdom(const sensor_msgs::Imu &imu, const int &enc_
 	l_enc_prev_ = enc_l_val;
 	r_enc_prev_ = enc_r_val;
 	first_time_ = false;
-	current_imu_ori_ = fixOriEigen(toEigen(imu.orientation));
+	//current_imu_ori_ = fixOriEigen(toEigen(imu.orientation));
+	current_imu_ori_ = toEigen(imu.orientation);
 	ROS_INFO("imu in calc: %f %f %f %f %f",  imu.header.stamp.toSec(), imu.orientation.x, imu.orientation.y, imu.orientation.z, imu.orientation.w);
 	//LOG(INFO) << current_imu_ori_.x() << current_imu_ori_.y() << current_imu_ori_.z() << current_imu_ori_.w();
 	return;
     }
 
     ::Eigen::Quaterniond last_imu_ori ( current_imu_ori_);
-    current_imu_ori_ = fixOriEigen(toEigen(imu.orientation));
+    //current_imu_ori_ = fixOriEigen(toEigen(imu.orientation));
+    current_imu_ori_ = toEigen(imu.orientation);
     //LOG(INFO) << last_imu_ori.x() << last_imu_ori.y() << last_imu_ori.z() << last_imu_ori.w();
     //LOG(INFO) << current_imu_ori_.x() << current_imu_ori_.y() << current_imu_ori_.z() << current_imu_ori_.w();
     if (std::isnan(current_imu_ori_.x()) || std::isnan(current_imu_ori_.y()) || std::isnan(current_imu_ori_.z()) || std::isnan(current_imu_ori_.w()) )

@@ -295,8 +295,8 @@ int main(int argc, char** argv) {
 		      auto new_node = g_traj.add_node();
 		      new_node->set_timestamp(cartographer::common::ToUniversal(cartographer_ros::FromRos(last_stamp_encoder_left)));
 
-		      //auto t_odom_pose = cartographer::transform::Rigid3d::Rotation(cartographer::transform::RollPitchYaw(M_PI,0,0)) *geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetImuOdom() * sensor_pose_rigid3d; 
-		      auto t_odom_pose = geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetImuOdom() * sensor_pose_rigid3d; 
+		      auto t_odom_pose = cartographer::transform::Rigid3d::Rotation(cartographer::transform::RollPitchYaw(M_PI,0,0)) *geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetImuOdom() * sensor_pose_rigid3d; 
+		      //auto t_odom_pose = geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() * odom_calc.GetImuOdom() * sensor_pose_rigid3d; 
 		      proto_rigid3ds.push_back(cartographer::transform::ToProto(t_odom_pose));
 		      cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
 		      new_node->set_allocated_pose(t_proto_rigid3d);
