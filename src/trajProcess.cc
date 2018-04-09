@@ -688,9 +688,13 @@ int main(int argc, char** argv) {
 	}
 	else if (FLAGS_voxel_grid_pcd)
 	{
-	    pcl::VoxelGrid<pcl::PointXYZ> sor;
-	    PointCloud::Ptr cloud_filtered (new PointCloud ());
-	    sor.setInputCloud (accumulator.GetTotalPointCloud());
+	    //pcl::VoxelGrid<VPoint> sor;
+	    pcl::VoxelGrid<::pcl::PointXYZI> sor;
+	    //sor.setDownsampleAllData(false);
+	    ::pcl::PointCloud<::pcl::PointXYZI>::Ptr cloud_filtered (new ::pcl::PointCloud<::pcl::PointXYZI> ());
+	    pcl::copyPointCloud(*accumulator.GetTotalVPointCloud(),  *cloud_filtered);
+	    //sor.setInputCloud (accumulator.GetTotalVPointCloud());
+	    sor.setInputCloud (cloud_filtered);
 	    sor.setLeafSize (voxel_filter_leaf, voxel_filter_leaf, voxel_filter_leaf);
 	    sor.filter (*cloud_filtered);
 
