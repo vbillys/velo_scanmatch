@@ -4,6 +4,10 @@ project(velo_scanmatch)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+#set(CMAKE_CXX_COMPILER "/home/agoy/Downloads/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang++")
+#set(CMAKE_C_COMPILER "/home/agoy/Downloads/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang")
+#set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+#set(CMAKE_C_COMPILER "/usr/bin/clang")
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=gnu++11")
 #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
@@ -40,6 +44,7 @@ include_directories(
 	${CERES_INCLUDE_DIRS}
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
+    ${PROJECT_SOURCE_DIR}
 	${PCL_INCLUDE_DIRS})
 
 add_service_files(
@@ -91,8 +96,8 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_
 #add_executable(snapsaver src/exporter.cpp src/dataFramework/data_model.cpp)
 #target_link_libraries(snapsaver ${catkin_LIBRARIES} )
 
-add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc)
-target_link_libraries(traj_process trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
+add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
+target_link_libraries(traj_process trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc)
 target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
