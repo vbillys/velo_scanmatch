@@ -58,6 +58,14 @@
 
 #include <pcl/io/pcd_io.h>
 
+#include <pcl/search/impl/search.hpp>
+
+#ifndef PCL_NO_PRECOMPILE
+#include <pcl/impl/instantiate.hpp>
+#include <pcl/point_types.h>
+PCL_INSTANTIATE(Search, PCL_POINT_TYPES)
+#endif // PCL_NO_PRECOMPILE
+
 typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
