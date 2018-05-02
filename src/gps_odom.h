@@ -12,6 +12,14 @@
 
 #include "src/topic_name_code.h"
 
+/*!
+ * \brief Encapsulate odometry computation from GPS/IMU
+ *
+ * Process IMU data and GPS(RTK) with sync first then
+ * advance based on GPS clocking. (Although GPS is the
+ * main data, use closest distance approximation for
+ * fusion).
+ */
 class GpsOdom {
     explicit GpsOdom(
         const rosbag::View& rosbag_view,

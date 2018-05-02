@@ -11,12 +11,11 @@ enum StringCode { eImu, eEncoderLeft, eEncoderRight, eGnss };
 struct TopicKeyMapper {
     TopicKeyMapper(const string& imu_topic, const string& encoder_left_topic,
                    const string& encoder_right_topic,
-                   const string& gnss_topic) {
-        s_mapStringToStringCode_ = {{imu_topic, eImu},
-                                    {encoder_left_topic, eEncoderLeft},
-                                    {encoder_right_topic, eEncoderRight},
-                                    {gnss_topic, eGnss}};
-    }
+                   const string& gnss_topic) :
+        s_mapStringToStringCode_({{imu_topic, eImu},
+                                 {encoder_left_topic, eEncoderLeft},
+                                 {encoder_right_topic, eEncoderRight},
+                                 {gnss_topic, eGnss}}) {}
     map<string, StringCode> s_mapStringToStringCode_;
 };
 

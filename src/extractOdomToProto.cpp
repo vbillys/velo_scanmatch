@@ -18,6 +18,7 @@
 
 #include "src/odom_calc.h"
 #include "src/topic_name_code.h"
+#include "src/gps_odom_process.h"
 
 DEFINE_string(bag_filenames, "",
               "Bags to process, must be in the same order as the trajectories "
