@@ -1,0 +1,41 @@
+<launch>
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/loamtraj.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag">-->
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">-->
+	<param name="/use_sim_time" value="true"/>
+	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/zeeshan/bags/collect_bef_revamp/speed_30.bag-gps-origin-odom-fromzero.pbstream -bag_filenames /home/zeeshan/bags/collect_bef_revamp/speed_30.bag">
+	<!-- <node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/zeeshan/calib_denso/src/velo_scanmatch/denso_full_round.pbstream -bag_filenames /home/zeeshan/calib_denso/src/velo_scanmatch/denso_full_round.bag"> -->
+		<!--<param name="pc_topic" value="/velodyne_top/velodyne_points"/>-->
+		<param name="pc_topic" value="/velodyne_top/velodyne_points "/>
+		<param name="publish_pc" value="false"/>
+		<param name="use_ref" value="false"/>
+		<param name="calibrate" value="true"/>
+
+		<param name="mode" value="1"/>
+		<param name="search_resolution" value="0.01"/>
+		<param name="half_width_search" value="0.50"/>
+
+		<param name="search_resolution_xyz" value="0.01"/>
+		<param name="half_width_search_xyz" value="0.50"/>
+
+		<param name="search_resolution_rpy" value="0.1"/>
+		<param name="half_width_search_rpy" value="5"/>
+
+		<param name="init_x" value="1.415"/>
+		<param name="init_y" value="0"/>
+		<param name="init_z" value="1.698"/>
+
+		<param name="init_roll" value="0.0"/>
+		<param name="init_pitch" value="0.0"/>
+		<param name="init_yaw" value="0.0"/>
+
+		<param name="starting_mssg_number" value="300"/>
+		<param name="ending_mssg_number" value="700.0"/>
+		<!-- <param name="skip_points" value="16"/> -->
+		<!-- <param name="init_x" value="0.0"/>
+		<param name="init_y" value="0.0"/>
+		<param name="init_z" value="0.0"/>
+		<param name="init_roll" value="0.0"/>
+		<param name="init_pitch" value="0.0"/>
+		<param name="init_yaw" value="0.0"/> -->
+	</node>
+</launch>
