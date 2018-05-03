@@ -19,6 +19,7 @@
 #include "src/odom_calc.h"
 #include "src/topic_name_code.h"
 #include "src/gps_odom_process.h"
+#include "src/odom_process.h"
 
 DEFINE_string(bag_filenames, "",
               "Bags to process, must be in the same order as the trajectories "
@@ -280,6 +281,8 @@ int main(int argc, char** argv) {
         OdomCalculator odom_calc;
         odom_calc.setEncoderOnly(true);
 
+        OdomProcessor odom_processor(geopp_pose_rigid3d, sensor_pose_rigid3d);
+
         sensor_msgs::Imu::Ptr imu_msg;
         sensor_msgs::Imu imu_msg_obj;
         std_msgs::Int32::Ptr encoder_left_msg;
@@ -363,12 +366,16 @@ int main(int argc, char** argv) {
                                 cartographer_ros::FromRos(
                                     last_stamp_encoder_left)));
 
-                        auto t_odom_pose =
-                            cartographer::transform::Rigid3d::Rotation(
-                                cartographer::transform::RollPitchYaw(M_PI, 0,
-                                                                      0)) *
-                            geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() *
-                            odom_calc.GetImuOdom() * sensor_pose_rigid3d;
+                        //auto t_odom_pose =
+                            //cartographer::transform::Rigid3d::Rotation(
+                                //cartographer::transform::RollPitchYaw(M_PI, 0,
+                                                                      //0)) *
+                            //geopp_pose_rigid3d * sensor_pose_rigid3d.inverse() *
+                            //odom_calc.GetImuOdom() * sensor_pose_rigid3d;
+                        cartographer::transform::Rigid3d t_odom_pose =
+                            odom_processor.Process(imu_msg_obj,
+                                                   encoder_left_data,
+                                                   encoder_right_data);
                         proto_rigid3ds.push_back(
                             cartographer::transform::ToProto(t_odom_pose));
                         cartographer::transform::proto::Rigid3d*

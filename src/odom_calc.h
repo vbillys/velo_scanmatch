@@ -2,6 +2,7 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include "transform.h"
+#include "eigen_conversions/eigen_msg.h"
 
 class OdomCalculator
 {
@@ -24,6 +25,13 @@ class OdomCalculator
 
     void ProcessImuOdom(const sensor_msgs::Imu &imu, const int &enc_l_val, const int &enc_r_val, const ::ros::Time &curr_ros_time);
     const cartographer::transform::Rigid3d & GetImuOdom();
+
+    static inline ::Eigen::Quaterniond toEigen(const geometry_msgs::Quaternion &msg) {
+        ::Eigen::Quaterniond result;
+        ::tf::quaternionMsgToEigen(msg, result);
+        return result;
+}
+
   private:
     int delta_l_enc_;
     int delta_r_enc_;

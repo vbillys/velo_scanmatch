@@ -13,13 +13,6 @@ inline static ::Eigen::Quaterniond fixOriEigen(const ::Eigen::Quaterniond &input
   return correction * input;
 }
 
-
-inline static ::Eigen::Quaterniond toEigen(const geometry_msgs::Quaternion &msg){
-  ::Eigen::Quaterniond result;
-  ::tf::quaternionMsgToEigen(msg, result);
-  return result;
-}
-
 OdomCalculator::OdomCalculator():
   delta_l_enc_(0),
   delta_r_enc_(0),
@@ -80,7 +73,7 @@ bool OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const 
   }
   else
   {
-      imu_delta_thet         = - imu_val * 0.02;
+      imu_delta_thet = -imu_val * 0.02;  // assuming 50 Hz on the synced
   }
   //double delta_thet	= (r_wd - l_wd)/wtw_distance_;
   double delta_v		= (l_wd + r_wd)/2.0;
@@ -113,7 +106,7 @@ bool OdomCalculator::Process(const double &imu_val, const int &enc_l_val, const 
 
   pose_stamp_ = curr_ros_time;
 
-  odom_imu_.header.stamp =  curr_ros_time ;
+  odom_imu_.header.stamp =  curr_ros_time;
   odom_imu_.header.frame_id = "/odom_imu";
 
   //setimu_ the position
@@ -198,4 +191,3 @@ const cartographer::transform::Rigid3d & OdomCalculator::GetImuOdom()
 {
     return imuodom_as_rigid3d_;
 }
-

@@ -43,8 +43,8 @@ class GpsOdomProcessor {
                         imu_msg.orientation.y, imu_msg.orientation.z)
                 .toRotationMatrix()
                 .eulerAngles(2, 1, 0);
-        return cartographer::transform::RollPitchYaw(euler[0], -euler[1],
-                                                     M_PI / 2 - euler[2]);
+        return cartographer::transform::RollPitchYaw(euler[2], -euler[1],
+                                                     M_PI / 2 - euler[0]);
     }
 
    private:
