@@ -127,6 +127,8 @@ int main(int argc, char** argv) {
         bool first_time = true;
         cartographer::transform::Rigid3d first_rigid3d;
 
+        GpsOdomProcessor gps_odom_processor(FLAGS_gps_mode_start_zero, geopp_pose_rigid3d, sensor_pose_rigid3d);
+
         sensor_msgs::Imu::Ptr imu_msg;
         sensor_msgs::NavSatFix::Ptr gnss_msg;
 
@@ -183,6 +185,9 @@ int main(int argc, char** argv) {
                     // WARNING: here 'sensor_pose_rigid3d.inverse() *' and
                     // geopp_pose_rigid3d must be set carefully, (multi-runs,
                     // calibration etc.)
+                    proto_rigid3ds.push_back(cartographer::transform::ToProto(
+                        gps_odom_processor.Process(*imu_msg, *gnss_msg)));
+#if 0
                     if (FLAGS_gps_mode_start_zero) {
                         if (first_time) {
                             proto_rigid3ds.push_back(
@@ -246,6 +251,7 @@ int main(int argc, char** argv) {
                                                    imu_msg->orientation.z)) *
                                 sensor_pose_rigid3d));
                     }
+#endif
                     cartographer::transform::proto::Rigid3d* t_proto_rigid3d =
                         new cartographer::transform::proto::Rigid3d(
                             proto_rigid3ds.back());

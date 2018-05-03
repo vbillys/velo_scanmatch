@@ -18,7 +18,8 @@ class OdomProcessor {
                            const Rigid3d& sensor_pose_rigid3d)
         : tick_distance_(0.00206),
           geopp_pose_rigid3d_(geopp_pose_rigid3d),
-          sensor_pose_rigid3d_(sensor_pose_rigid3d) {}
+          sensor_pose_rigid3d_(sensor_pose_rigid3d),
+          sensor_pose_rigid3d_inversed_(sensor_pose_rigid3d.inverse()) {}
     ~OdomProcessor() {}
 
     OdomProcessor(const OdomProcessor&) = delete;
@@ -32,6 +33,7 @@ class OdomProcessor {
 
    private:
     Rigid3d sensor_pose_rigid3d_;
+    Rigid3d sensor_pose_rigid3d_inversed_;
     Rigid3d geopp_pose_rigid3d_;
     bool first_time_ = true;
     int l_enc_prev_;

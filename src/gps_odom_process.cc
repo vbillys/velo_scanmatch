@@ -35,7 +35,8 @@ GpsOdomProcessor::Rigid3d GpsOdomProcessor::ProcessStartZero(
         ConvertIMUAlphardSpatialDualToENU(imu_msg));
 
     if (first_time_) {
-        first_rigid3d_inversed_ = pose_converted.inverse();
+        first_rigid3d_inversed_ =
+            (pose_converted * sensor_pose_rigid3d_).inverse();
         first_time_ = false;
         return geopp_pose_rigid3d_ * sensor_pose_rigid3d_;
     } else {

@@ -62,5 +62,6 @@ OdomProcessor::Rigid3d OdomProcessor::Process(const Imu& imu_msg,
     last_imu_ori_ = current_imu_ori;
     l_enc_prev_ = l_enc;
     r_enc_prev_ = r_enc;
-    return imuodom_as_rigid3d_;
+    return sensor_pose_rigid3d_inversed_ * imuodom_as_rigid3d_ *
+           sensor_pose_rigid3d_;
 }
