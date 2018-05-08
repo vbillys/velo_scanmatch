@@ -2,7 +2,8 @@
 
 #include "src/odom_process.h"
 #include "src/gps_odom_process.h"
-#include "src/odom_calc.h"
+//#include "src/odom_calc.h"
+#include <ros/console.h>
 #include "glog/logging.h"
 
 OdomProcessor::Rigid3d OdomProcessor::Process(const Imu& imu_msg,

@@ -38,7 +38,7 @@ GpsOdomProcessor::Rigid3d GpsOdomProcessor::ProcessStartZero(
         first_rigid3d_inversed_ =
             (pose_converted * sensor_pose_rigid3d_).inverse();
         first_time_ = false;
-        return geopp_pose_rigid3d_ * sensor_pose_rigid3d_;
+        return geopp_pose_rigid3d_; // * sensor_pose_rigid3d_;
     } else {
         return geopp_pose_rigid3d_ * first_rigid3d_inversed_ * pose_converted *
                sensor_pose_rigid3d_;
