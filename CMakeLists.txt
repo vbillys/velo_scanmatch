@@ -4,8 +4,8 @@ project(velo_scanmatch)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_COMPILER "/home/agoy/Downloads/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang++")
-set(CMAKE_C_COMPILER "/home/agoy/Downloads/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang")
+set(CMAKE_CXX_COMPILER "/home/yoga/lib/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang++")
+
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 #set(CMAKE_C_COMPILER "/usr/bin/clang")
 
@@ -99,11 +99,11 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_
 add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
 target_link_libraries(traj_process trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
 
-add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc src/gps_odom_process.cc src/odom_process.cc)
+add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc src/gps_odom_process.cc src/svy21.cc src/odom_process.cc)
 target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
 
-add_executable(test_write_pcd src/test_write_pcd.cc)
-target_link_libraries(test_write_pcd ${catkin_LIBRARIES})
+# add_executable(test_write_pcd src/test_write_pcd.cc)
+# target_link_libraries(test_write_pcd ${catkin_LIBRARIES})
 
 add_dependencies(laserMapping ${catkin_EXPORTED_TARGETS})
 add_dependencies(laserOdometry ${catkin_EXPORTED_TARGETS})

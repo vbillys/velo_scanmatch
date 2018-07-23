@@ -5,12 +5,17 @@
 #include "src/transform.h"
 #include "sensor_msgs/Imu.h"
 #include "sensor_msgs/NavSatFix.h"
+#include "rds_msgs/msg_novatel_inspva.h"
+#include "rds_msgs/msg_novatel_bestpos.h"
+#include "src/svy21.h"
 
 class GpsOdomProcessor {
    public:
     using Rigid3d = cartographer::transform::Rigid3d;
     using Imu = sensor_msgs::Imu;
     using NavSatFix = sensor_msgs::NavSatFix;
+    using STKIns = rds_msgs::msg_novatel_inspva;
+    using STKGps = rds_msgs::msg_novatel_bestpos;
 
     explicit GpsOdomProcessor(const bool& start_at_zero,
                             const Rigid3d& geopp_pose_rigid3d,
@@ -29,6 +34,7 @@ class GpsOdomProcessor {
      * calls other Process... with options
      */
     Rigid3d Process(const Imu& imu_msg, const NavSatFix& gnss_msg);
+    Rigid3d STKProcess(const STKIns& gps_ins_msg, const STKGps& gps_bes_msg);
 
     /*!
      * \brief Convert axes convention 
@@ -56,6 +62,7 @@ class GpsOdomProcessor {
      * from zero.
      */
     Rigid3d ProcessArbitrary(const Imu& imu_msg, const NavSatFix& gnss_msg);
+    Rigid3d STKProcessArbitrary(const STKIns& gps_ins_msg, const STKGps& gps_bes_msg);
 
     /*!
      * \brief processing stub (from zero start)
@@ -65,6 +72,7 @@ class GpsOdomProcessor {
      * from zero.
      */
     Rigid3d ProcessStartZero(const Imu& imu_msg, const NavSatFix& gnss_msg);
+    Rigid3d STKProcessStartZero(const STKIns& gps_ins_msg, const STKGps& gps_bes_msg);
 
    private:
     const bool b_start_from_zero_;
