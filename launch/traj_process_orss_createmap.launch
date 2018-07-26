@@ -1,10 +1,16 @@
 <launch>
+    <arg name="bagfile" default="/home/acad/Documents/procomm/show-20180724.bag"/>
+    <arg name="pbstreamfile" default="/home/acad/Documents/procomm/show.pbstream"/>
+    <arg name="outpcdfile" default="/home/acad/Documents/procomm/show.pcd"/>
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/loamtraj.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag">-->
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">-->
 	<param name="/use_sim_time" value="true"/>
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/denso_calib_2_0.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag">-->
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_lvl18_Mar27_2018/orss_mar27_lvl18_0.pbstream -bag_filenames /home/agoy/Documents/orss_lvl18_Mar27_2018/orss_test_2018-03-27-14-28-42_0.bag -pcd_filename orss_lvl18_0_voxeled.pcd -voxel_grid_pcd">-->
-	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_pocc/mha_april_createmap.pbstream -bag_filenames /home/agoy/Documents/orss_pocc/mha_create_map.bag -pcd_filename mha_april_voxeled.pcd -voxel_grid_pcd">
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_pocc/mha_april_createmap.pbstream -bag_filenames /home/agoy/Documents/orss_pocc/mha_create_map.bag -pcd_filename mha_april_voxeled.pcd -voxel_grid_pcd">-->
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_pocc/mha_april_createmap.pbstream -bag_filenames /home/agoy/Documents/orss_pocc/mha_create_map.bag -pcd_filename mha_april_randomized.pcd -random_sample_pcd">-->
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_pocc/sutd_may_createmap.pbstream -bag_filenames /home/agoy/Documents/orss_pocc/sutd_may_createmap.bag -pcd_filename sutd_may_randomized.pcd -random_sample_pcd">-->
+        <node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename $(arg pbstreamfile) -bag_filenames $(arg bagfile) -pcd_filename $(arg outpcdfile) -random_sample_pcd">
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/orss_pocc/mha_april_createmap.pbstream -bag_filenames /home/agoy/Documents/orss_pocc/mha_create_map.bag -pcd_filename mha_april_randomized.pcd -random_sample_pcd">-->
 		<param name="pc_topic" value="/velodyne_straight/velodyne_points"/>
 		<!--<param name="pc_topic" value="/denso_packets"/>-->
@@ -14,5 +20,6 @@
 		<param name="use_beamlayer" value="false"/>
 		<param name="use_passthrough" value="false"/>
 		<param name="voxel_filter_leaf" value="0.2"/>
+                <param name="random_filter_percentage" value="0.03"/>
 	</node>
 </launch>
