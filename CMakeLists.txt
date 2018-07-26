@@ -26,7 +26,9 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   eigen_conversions
   protobuf_catkin
-  tf)
+  tf
+  ndtbasedloc
+  )
 
 #find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
@@ -35,6 +37,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
   ${PROJECT_SOURCE_DIR}/src )
 find_package(LuaGoogle REQUIRED)
 find_package(Ceres REQUIRED HINTS "/home/agoy/cs_ws/devel_isolated/ceres-solver/lib/cmake/Ceres")
+
+set(G2O_ROOT "/home/acad/Documents/workspace/g2o/install")
+find_package(G2O REQUIRED)
 
 #find_package(PkgConfig REQUIRED)
 
@@ -46,7 +51,9 @@ include_directories(
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}
-	${PCL_INCLUDE_DIRS})
+	${PCL_INCLUDE_DIRS}
+        ${G2O_INCLUDE_DIR}
+        )
 
 add_service_files(
 	FILES
@@ -59,7 +66,7 @@ generate_messages(
 )
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime ndtbasedloc
   DEPENDS EIGEN3 PCL OpenCV message_runtime 
   INCLUDE_DIRS include
 )
@@ -100,6 +107,9 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto ${CATKIN_DEVEL_
 
 add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
 target_link_libraries(traj_process trajproto ${CATKIN_DEVEL_PREFIX}/lib/libprotobuf${CMAKE_SHARED_LIBRARY_SUFFIX} glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(traj_process_loam src/trajProcessLoam.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
+target_link_libraries(traj_process_loam trajproto ${CATKIN_DEVEL_PREFIX}/lib/libprotobuf${CMAKE_SHARED_LIBRARY_SUFFIX} glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES} loamlib)
 
 add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc src/gps_odom_process.cc src/odom_process.cc)
 target_link_libraries(extract_odom trajproto ${CATKIN_DEVEL_PREFIX}/lib/libprotobuf${CMAKE_SHARED_LIBRARY_SUFFIX} glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES})
