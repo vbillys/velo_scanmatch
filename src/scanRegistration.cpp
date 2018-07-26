@@ -191,6 +191,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   std::vector<int> scanEndInd(N_SCANS, 0);
   
   double timeScanCur = laserCloudMsg->header.stamp.toSec();
+  ROS_INFO("Scan Cur Time: %.9f", timeScanCur);
   pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
   std::vector<int> indices;
@@ -607,6 +608,8 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   imuTransMsg.header.stamp = laserCloudMsg->header.stamp;
   imuTransMsg.header.frame_id = "/camera";
   pubImuTrans.publish(imuTransMsg);
+
+  ROS_INFO_STREAM ("clouds stat " << cornerPointsSharp.size() << " "<< cornerPointsLessSharp.size() << " "<< surfPointsFlat.size() << " "<< surfPointsLessFlat.size() << " "<< laserCloud->size() << " ");
 }
 
 void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)

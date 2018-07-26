@@ -460,10 +460,10 @@ int main(int argc, char** argv)
       coeffSel->clear();
 
       transform[3] -= 0;//imuVeloFromStartX * scanPeriod;
-      transform[3] -= g_force_SE2 ? imuVeloFromStartX * scanPeriod : 0;
+      transform[3] -= g_force_SE2 ? 0 : imuVeloFromStartX * scanPeriod;
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= 0;//imuVeloFromStartZ * scanPeriod;
-      transform[5] -= g_force_SE2 ? imuVeloFromStartZ * scanPeriod : 0;
+      transform[5] -= g_force_SE2 ? 0 : imuVeloFromStartZ * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -797,13 +797,13 @@ int main(int argc, char** argv)
           }
 
           transform[0] += 0;//matX.at<float>(0, 0);
-	  transform[0] += g_force_SE2 ? matX.at<float>(0, 0) : 0;
+	  transform[0] += g_force_SE2 ? 0 : matX.at<float>(0, 0);
           transform[1] += matX.at<float>(1, 0);
           transform[2] += 0;//matX.at<float>(2, 0);
-	  transform[2] += g_force_SE2 ? matX.at<float>(2, 0) : 0;
+	  transform[2] += g_force_SE2 ? 0 : matX.at<float>(2, 0);
           transform[3] += matX.at<float>(3, 0);
           transform[4] += 0;//matX.at<float>(4, 0);
-	  transform[4] += g_force_SE2 ? matX.at<float>(4, 0) : 0;
+	  transform[4] += g_force_SE2 ? 0 : matX.at<float>(4, 0);
           transform[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){
@@ -882,6 +882,11 @@ int main(int argc, char** argv)
       cartographer::transform::proto::Rigid3d *t_proto_rigid3d = new cartographer::transform::proto::Rigid3d(proto_rigid3ds.back());
       new_node->set_allocated_pose(t_proto_rigid3d);
       ROS_INFO("lodometry node size: %d %.6f", g_traj.node_size(), timeSurfPointsLessFlat);
+      cartographer::transform::Rigid3d odom_rigid3d = cartographer::transform::Rigid3d(cartographer::transform::Rigid3d::Vector(tx,ty,tz), cartographer::transform::Rigid3d::Quaternion(geoQuat.w, -geoQuat.y, -geoQuat.z, geoQuat.x));
+      ROS_INFO_STREAM("imus " << imuPitchStart << " " << imuPitchLast  << " "<< imuRollStart  << " "<< imuRollLast  << " "<< imuYawStart  << " "<< imuYawLast << " " << imuShiftFromStartX << " " << imuShiftFromStartY << " " << imuShiftFromStartZ << " " << imuVeloFromStartX  << " " << imuVeloFromStartY  << " " << imuVeloFromStartZ );
+      ROS_INFO_STREAM("odom transform " << transform[0] << " " << transform[1]  << " "<< transform[2]  << " "<< transform[3]  << " "<< transform[4]  << " "<< transform[5]);
+      ROS_INFO_STREAM("odom transformSum " << transformSum[0] << " " << transformSum[1]  << " "<< transformSum[2]  << " "<< transformSum[3]  << " "<< transformSum[4]  << " "<< transformSum[5]);
+      ROS_INFO_STREAM("odom values" << odom_rigid3d);
 
       int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
       for (int i = 0; i < cornerPointsLessSharpNum; i++) {
