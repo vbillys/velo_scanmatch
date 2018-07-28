@@ -15,6 +15,8 @@
  *   a very big loop, we dun have local map already (swept away
  *   by the moving window). Thus only submapping-based loop
  *   closure (like in cartographer) could work.
+ * - forth, only using odometry and GPS is also possible. However,
+ *   roll, pitch, z are probably errornous.
  */
 
 /*===========================================================================*/
@@ -83,14 +85,14 @@
 PCL_INSTANTIATE(Search, PCL_POINT_TYPES)
 #endif // PCL_NO_PRECOMPILE
 
-    typedef velodyne_pointcloud::PointXYZIR VPoint;
-    typedef pcl::PointCloud<VPoint> VPointCloud;
-    typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-    pcl::KdTreeFLANN<pcl::PointXYZ> ref_kdtree;
+typedef velodyne_pointcloud::PointXYZIR VPoint;
+typedef pcl::PointCloud<VPoint> VPointCloud;
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+pcl::KdTreeFLANN<pcl::PointXYZ> ref_kdtree;
 
-    DEFINE_string(traj_filename, "",
-            "Proto stream file containing the pose graph.");
+DEFINE_string(traj_filename, "",
+        "Proto stream file containing the pose graph.");
 DEFINE_string(bag_filenames, "",
         "Bags to process, must be in the same order as the trajectories "
         "in 'pose_graph_filename'.");
