@@ -66,3 +66,44 @@ OdomProcessor::Rigid3d OdomProcessor::Process(const Imu& imu_msg,
     return sensor_pose_rigid3d_inversed_ * imuodom_as_rigid3d_ *
            sensor_pose_rigid3d_;
 }
+
+// curr_time is updated using message.Gettime()
+OdomProcessor::Rigid3d OdomProcessor::STKProcess(const STKImu& vns_att_msg, const STKSpd& veh_meas_msg, double curr_time)
+{
+    // convert vnt_att from RPY to quaterniond
+    Quaterniond current_imu_ori = cartographer::transform::RollPitchYaw(vns_att_msg.vector.x, vns_att_msg.vector.y, vns_att_msg.vector.z);
+
+    if(first_time_) {
+        first_time_ = false;
+        last_imu_ori_ = current_imu_ori;
+        last_veh_time_ = curr_time;
+
+        return imuodom_as_rigid3d_;
+    }
+
+    if (std::isnan(current_imu_ori.x()) || std::isnan(current_imu_ori.y()) ||
+        std::isnan(current_imu_ori.z()) || std::isnan(current_imu_ori.w())) {
+        LOG(FATAL) << current_imu_ori.x() << current_imu_ori.y()
+                   << current_imu_ori.z() << current_imu_ori.w();
+    }
+
+    Quaterniond delta_q = last_imu_ori_.inverse() * current_imu_ori;
+
+
+    double delta_time = curr_time - last_veh_time_;
+    double delta_v = veh_meas_msg.speed * delta_time;
+
+
+    cartographer::transform::Rigid3d delta_T(::Eigen::Vector3d(delta_v, 0, 0),
+                                             delta_q);
+
+    imuodom_as_rigid3d_ = imuodom_as_rigid3d_ * delta_T;
+
+    // update ori and time for next run
+    last_imu_ori_ = current_imu_ori;
+    last_veh_time_ = curr_time;
+
+    return sensor_pose_rigid3d_inversed_ * imuodom_as_rigid3d_ *
+            sensor_pose_rigid3d_;
+
+}

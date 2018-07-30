@@ -30,6 +30,7 @@ DEFINE_string(odom_stream_filename, "",
 
 DEFINE_bool(process_raw, false, "Include 'advanced' using raw encoder");
 DEFINE_bool(process_stk_gps, false, "Using STK gps tp extract");
+DEFINE_bool(process_stk_odom, false, "Using STK odom tp extract");
 DEFINE_bool(gps_mode, false, "Using GNSS data to extract");
 DEFINE_bool(gps_mode_start_zero, false,
             "Compensate first reading for GNSS to zero (odom like)");
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
                            "/an_device/NavSatFix_metric");
 
     // for raw processing
-    std::string encoder_left_topic, encoder_right_topic, imu_topic, stk_imu_topic, stk_gps_topic;
+    std::string encoder_left_topic, encoder_right_topic, imu_topic, stk_imu_topic, stk_gps_topic, stk_vns_att_topic, stk_veh_meas_topic;
     pnh.param<std::string>("encoder_left_topic", encoder_left_topic,
                            "/encoder_left");
     pnh.param<std::string>("encoder_right_topic", encoder_right_topic,
@@ -63,6 +64,8 @@ int main(int argc, char** argv) {
     pnh.param<std::string>("imu_topic", imu_topic, "/an_device/Imu");
     pnh.param<std::string>("stk_imu_topic", stk_imu_topic, "/gps_inspva");
     pnh.param<std::string>("stk_gps_topic", stk_gps_topic, "/gps_bestpos");
+    pnh.param<std::string>("stk_vns_att_topic", stk_vns_att_topic, "/vns_attitude");
+    pnh.param<std::string>("stk_veh_meas_topic", stk_veh_meas_topic, "/stwi_veh_meas");
     double wtw_distance, tick_distance;
     pnh.param<double>("wtw_distance", wtw_distance, 1.56);
     pnh.param<double>("tick_distance", tick_distance, 0.00206);
@@ -102,6 +105,8 @@ int main(int argc, char** argv) {
                        encoder_right_topic,
                        stk_gps_topic,
                        stk_imu_topic,
+                       stk_vns_att_topic,
+                       stk_veh_meas_topic,
                        gnss_topic).s_mapStringToStringCode_;
 
     rosbag::Bag bag;
@@ -119,13 +124,16 @@ int main(int argc, char** argv) {
     } else if (FLAGS_process_stk_gps) {
         topics.push_back(stk_gps_topic);
         topics.push_back(stk_imu_topic);
+    } else if (FLAGS_process_stk_odom) {
+        topics.push_back(stk_vns_att_topic);
+        topics.push_back(stk_veh_meas_topic);
     } else {
         topics.push_back(odom_topic);
     }
     rosbag::View view(bag, rosbag::TopicQuery(topics));
 
     cartographer::mapping::proto::Trajectory g_traj;
-    std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds;
+    std::vector<cartographer::transform::proto::Rigid3d> proto_rigid3ds; 
 
     if (FLAGS_gps_mode) {
         bool gps_harvest = false;
@@ -312,7 +320,7 @@ int main(int argc, char** argv) {
                     imu_msg_obj = *imu_msg;
                     imu_sampled = true;
                     // ROS_INFO("imu: %f %f %f %f %f",
-                    // imu_msg->header.stamp.toSec(), imu_msg_obj.orientation.x,
+                    //rosbagimu_msg->header.stamp.toSec(), imu_msg_obj.orientation.x,
                     // imu_msg_obj.orientation.y, imu_msg_obj.orientation.z,
                     // imu_msg_obj.orientation.w);
                     last_stamp_imu = message.getTime();
@@ -370,9 +378,9 @@ int main(int argc, char** argv) {
                     }
 
                     if (encoder_harvest) {
-                        odom_calc.ProcessImuOdom(imu_msg_obj, encoder_left_data,
-                                                 encoder_right_data,
-                                                 last_stamp_encoder_left);
+                        // odom_calc.ProcessImuOdom(imu_msg_obj, encoder_left_data,
+                        //                          encoder_right_data,
+                        //                          last_stamp_encoder_left);
 
                         auto new_node = g_traj.add_node();
                         new_node->set_timestamp(
@@ -504,30 +512,28 @@ int main(int argc, char** argv) {
             // we do simple check, if both gnss and imu are inited, we check
             // time diff
             // if time diff too big, we drop the older data
-            if (stk_gps_sampled) {
+            if (stk_gps_sampled && stk_imu_sampled) {
                 // gps_harvest is true when both are coming.
-                if(stk_imu_sampled) {
-                    if (last_stamp_stk_gps.toSec() - last_stamp_stk_imu.toSec() >=
-                        0.07) { // assuming 100 Hz
-                        gps_harvest = false;
-                        stk_imu_sampled = false;
-                        }
-                    else {
-                        gps_harvest = true;
-                        // stk_imu_sampled = false;
-                        stk_gps_sampled = false;
-                        node_cnt++;
-                        // if (node_cnt%20 == 0) {
-                        //     ROS_INFO_STREAM ( "adding node number  " << node_cnt++ << "      " ) ;
-                        // }
+                
+                if (last_stamp_stk_gps.toSec() - last_stamp_stk_imu.toSec() >=
+                    0.025) { // assuming 100 Hz
+                    stk_imu_sampled = false;
                     }
+                else if (last_stamp_stk_imu.toSec() - last_stamp_stk_gps.toSec() >=
+                    0.025) {
+                    stk_gps_sampled = false;
+                } else {
+                    gps_harvest = true;
                 }
+                
 
                 if (gps_harvest) {
+                    stk_imu_sampled = false;
+                    stk_gps_sampled = false;                    
+
                     auto new_node = g_traj.add_node();
                     new_node->set_timestamp(cartographer::common::ToUniversal(
-                        cartographer_ros::FromRos(stk_gps_msg->stamp)));  // using ros::Time::now in all occassion for stk
-
+                        cartographer_ros::FromRos(last_stamp_stk_gps)));  // using ros::Time::now in all occassion for stk
                     // proto_rigid3ds.push_back(cartographer::transform::ToProto(cartographer::transform::Rigid3d(sensor_pose_rigid3d.inverse()
                     // *
                     // cartographer::transform::Rigid3d::Vector(gnss_msg->longitude,
@@ -546,8 +552,83 @@ int main(int argc, char** argv) {
                             proto_rigid3ds.back());
                     new_node->set_allocated_pose(t_proto_rigid3d);
                     ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(),
-                             stk_gps_msg->stamp.toSec());
+                            last_stamp_stk_gps.toSec());
                 }
+            }
+        }
+    } else if (FLAGS_process_stk_odom) {
+        bool stk_odom_harvest = false;
+        bool stk_veh_meas_sampled = false;
+        bool stk_vns_att_sampled = false;
+
+        ::ros::Time last_stamp_veh_meas, last_stamp_vns_att;
+        double curr_time;
+
+
+        OdomProcessor odom_processor(geopp_pose_rigid3d, sensor_pose_rigid3d);
+
+        geometry_msgs::Vector3Stamped::Ptr stk_vns_att_msg;
+        loc_msgs::GeometryMsgsVehicleMeasure::Ptr stk_veh_meas_msg;
+
+        for (const rosbag::MessageInstance& message : view) {
+
+            StringCode topic_key = s_mapStringToStringCode[message.getTopic()];
+            switch(topic_key){
+                case eStkVnsAtt:
+                    stk_vns_att_msg = message.instantiate<geometry_msgs::Vector3Stamped>() ;
+                    stk_vns_att_sampled =true;
+                    last_stamp_vns_att = message.getTime();
+                    break;
+                case eStkVehMeas:
+                    stk_veh_meas_msg = message.instantiate<loc_msgs::GeometryMsgsVehicleMeasure>();
+                    stk_veh_meas_sampled = true;
+                    last_stamp_veh_meas = message.getTime();
+                    break;
+                default:
+                    break;
+            }
+
+
+            if(stk_veh_meas_sampled && stk_vns_att_sampled ){
+                if(!stk_odom_harvest) {
+                    // this is only exectued once to find better sync. veh_meas is 50 Hz. vns_att is 40 Hz.
+                    if(last_stamp_veh_meas.toSec() - last_stamp_vns_att.toSec() > 0.01 ){
+                        stk_vns_att_sampled = false;
+                    }else if(last_stamp_vns_att.toSec() - last_stamp_veh_meas.toSec() > 0.01){
+                        stk_veh_meas_sampled = false;
+                    } else {
+                        stk_odom_harvest = true;
+                    }
+                } else {
+                    auto new_node = g_traj.add_node();
+                            new_node->set_timestamp(
+                                cartographer::common::ToUniversal(
+                                    cartographer_ros::FromRos(
+                                        last_stamp_veh_meas)));
+
+                    curr_time = last_stamp_veh_meas.toSec();
+
+                    cartographer::transform::Rigid3d t_odom_pose =
+                                odom_processor.STKProcess(*stk_vns_att_msg, *stk_veh_meas_msg, curr_time);
+
+                    proto_rigid3ds.push_back(
+                                cartographer::transform::ToProto(t_odom_pose));
+                            cartographer::transform::proto::Rigid3d*
+                                t_proto_rigid3d =
+                                    new cartographer::transform::proto::Rigid3d(
+                                        proto_rigid3ds.back());
+                            new_node->set_allocated_pose(t_proto_rigid3d);
+
+                            LOG(INFO) << t_odom_pose;  // exit(1);
+                            ROS_INFO("odometry node size: %d %.6f",
+                                    g_traj.node_size(),
+                                    last_stamp_veh_meas.toSec());
+                            if (std::isnan(t_odom_pose.translation().x()))
+                                LOG(FATAL) << "end!";
+
+                    stk_vns_att_sampled = false;
+                    stk_veh_meas_sampled = false;
+                }   
             }
         }
     } else {
