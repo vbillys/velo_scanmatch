@@ -17,6 +17,11 @@
  *   closure (like in cartographer) could work.
  * - forth, only using odometry and GPS is also possible. However,
  *   roll, pitch, z are probably errornous.
+ *
+ * We can test without SLAM first:
+ * - use the GPS odometry (i.e. GT) to build map (no Loam)
+ * - then with odom and Loam matching (lm only <- last stage of Loam)
+ * - compare whether error reduced
  */
 
 /*===========================================================================*/
@@ -34,8 +39,8 @@
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "ros/ros.h"
-#include "proto_stream.h"
-#include "trajectory.pb.h"
+// #include "proto_stream.h"
+// #include "trajectory.pb.h"
 
 #include "time_conversion.h"
 
@@ -49,7 +54,7 @@
 #include "sensor_msgs/PointCloud2.h"
 
 #include "transform.h"
-#include "transform_interpolation_buffer.h"
+#include "/root/catkin_imcl_ws/src/ndtbasedloc/src/transform_interpolation_buffer.h"
 
 #include "tf/transform_datatypes.h"
 
@@ -497,12 +502,18 @@ int main(int argc, char** argv) {
     pnh.param<float>("voxel_filter_leaf", voxel_filter_leaf, 0.01);
     float random_filter_percentage;
     pnh.param<float>("random_filter_percentage", random_filter_percentage, 0.1);
+    std::string base_dir_path;
+    pnh.param<std::string>("base_dir_path", base_dir_path, "");
+    ROS_INFO_STREAM("Using base dir path: " << base_dir_path);
+    int b_opt_cloud_feature = 0;
+    pnh.param<int>("opt_cloud_feature", b_opt_cloud_feature, 0);
+
 
     ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
     ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
 
     ROS_INFO("Using traj file: %s", FLAGS_traj_filename.c_str());
-    cartographer::io::ProtoStreamReader reader(FLAGS_traj_filename);
+    cartographer::io::ProtoStreamReader reader(base_dir_path + "/" + FLAGS_traj_filename);
     cartographer::mapping::proto::Trajectory proto_traj;
     CHECK(reader.ReadProto(&proto_traj));
     ROS_INFO("nodes contained %d", proto_traj.node_size());
@@ -513,11 +524,20 @@ int main(int argc, char** argv) {
         //LOG(INFO) << cartographer::transform::ToRigid3(i.pose());
     }
 
-    const cartographer::transform::TransformInterpolationBuffer
+    cartographer::transform::TransformInterpolationBuffer
         transform_interpolation_buffer(proto_traj);
     rosbag::Bag bag;
-    bag.open(FLAGS_bag_filenames, rosbag::bagmode::Read);
+    bag.open(base_dir_path + "/" + FLAGS_bag_filenames, rosbag::bagmode::Read);
     ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
+
+    // we use extracting loam features to build map
+    // Note: the TIB input here will be used for undistortion
+    // e.g. if it is a Loam or a GT output, may be different then the
+    // original odom (used for mapping/localization)
+    std::shared_ptr<cartographer::transform::TransformInterpolationBuffer> tib =
+        std::make_shared<cartographer::transform::TransformInterpolationBuffer>(
+            (proto_traj));
+    looam::ScanRegistration scan_registrar(tib);
 
     std::vector<std::string> topics;
     topics.push_back(pc_topic);
@@ -530,10 +550,53 @@ int main(int argc, char** argv) {
     accumulator.setBeamlayerContraint(b_opt_use_beamlayer);
     //pcl::VoxelGrid<VPointCloud> sor;
 
+    typedef pcl::PointXYZI PointType;
+    using PointCloudConstPtr =
+        std::shared_ptr<const pcl::PointCloud<PointType>>;
+
     for (const rosbag::MessageInstance& message : view) {
         sensor_msgs::PointCloud2::ConstPtr pc2_msg = message.instantiate<sensor_msgs::PointCloud2>();
         VPointCloud pcl_cloud;
         pcl::fromROSMsg(*pc2_msg, pcl_cloud);
+
+        scan_registrar.HandleLaserCloud(pc2_msg);
+        // PointCloudConstPtr corner_cloud, surf_cloud;
+        PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsLessSharp());
+        PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsLessFlat());
+
+        // The type currently being used is XYZIR, however loam uses XYZI
+        switch (b_opt_cloud_feature) {
+        case 1: // corner features extraction
+          pcl_cloud.clear();
+          // pcl::copyPointCloud(*corner_cloud, pcl_cloud);
+          // need to do manually as we want to switch axes
+          for (auto& point : corner_cloud->points) {
+              VPoint p;
+              p.x = point.z;
+              p.y = point.x;
+              p.z = point.y;
+              p.ring = 0;
+              p.intensity = point.intensity;
+              pcl_cloud.push_back(p);
+          }
+          break;
+        case 2: // surf features extraction
+          pcl_cloud.clear();
+          // pcl::copyPointCloud(*surf_cloud, pcl_cloud);
+          // need to do manually as we want to switch axes
+          for (auto& point : surf_cloud->points) {
+              VPoint p;
+              p.x = point.z;
+              p.y = point.x;
+              p.z = point.y;
+              p.ring = 0;
+              p.intensity = point.intensity;
+              pcl_cloud.push_back(p);
+          }
+          break;
+        case 0:
+        default:;
+        }
 
         // TODO: Put additional spacing condition here...
         if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
@@ -711,7 +774,7 @@ int main(int argc, char** argv) {
 
                 ROS_INFO("After random sample filtering");
                 ROS_INFO_STREAM("Got " << cloud_filtered->width * cloud_filtered->height << " data points in frame " << cloud_filtered->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_filtered) << std::endl);
-                pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_filtered);
+                pcl::io::savePCDFileBinaryCompressed(base_dir_path + "/" + FLAGS_pcd_filename, *cloud_filtered);
             }
             else if (FLAGS_voxel_grid_pcd)
             {
@@ -727,10 +790,10 @@ int main(int argc, char** argv) {
 
                 ROS_INFO("After voxel grid filtering");
                 ROS_INFO_STREAM("Got " << cloud_filtered->width * cloud_filtered->height << " data points in frame " << cloud_filtered->header.frame_id << " with the following fields: " << pcl::getFieldsList (*cloud_filtered) << std::endl);
-                pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_filtered);
+                pcl::io::savePCDFileBinaryCompressed(base_dir_path + "/" + FLAGS_pcd_filename, *cloud_filtered);
             }
             else
-                pcl::io::savePCDFileBinaryCompressed(FLAGS_pcd_filename, *cloud_t);
+                pcl::io::savePCDFileBinaryCompressed(base_dir_path + "/" + FLAGS_pcd_filename, *cloud_t);
         }
         ros::spin();
     }
