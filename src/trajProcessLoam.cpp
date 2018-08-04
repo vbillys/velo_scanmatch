@@ -98,6 +98,8 @@ pcl::KdTreeFLANN<pcl::PointXYZ> ref_kdtree;
 
 DEFINE_string(traj_filename, "",
         "Proto stream file containing the pose graph.");
+DEFINE_string(odom_filename, "",
+        "Proto stream file containing the odom for undistort.");
 DEFINE_string(bag_filenames, "",
         "Bags to process, must be in the same order as the trajectories "
         "in 'pose_graph_filename'.");
@@ -476,6 +478,8 @@ int main(int argc, char** argv) {
 
     CHECK(!FLAGS_traj_filename.empty())
         << "-traj_filename is missing.";
+    CHECK(!FLAGS_odom_filename.empty())
+        << "-odom_filename is missing.";
     CHECK(!FLAGS_bag_filenames.empty()) << "-bag_filenames is missing.";
 
     ros::init(argc, argv, "trajProcess");
@@ -518,6 +522,12 @@ int main(int argc, char** argv) {
     CHECK(reader.ReadProto(&proto_traj));
     ROS_INFO("nodes contained %d", proto_traj.node_size());
 
+    ROS_INFO("Using odom file: %s", FLAGS_odom_filename.c_str());
+    cartographer::io::ProtoStreamReader reader_odom(base_dir_path + "/" + FLAGS_odom_filename);
+    cartographer::mapping::proto::Trajectory proto_odom;
+    CHECK(reader_odom.ReadProto(&proto_odom));
+    ROS_INFO("nodes contained %d", proto_odom.node_size());
+
     for (auto i : proto_traj.node())
     {
         ROS_INFO("%.10f", cartographer_ros::ToRos(cartographer::common::FromUniversal(i.timestamp())).toSec());
@@ -536,7 +546,7 @@ int main(int argc, char** argv) {
     // original odom (used for mapping/localization)
     std::shared_ptr<cartographer::transform::TransformInterpolationBuffer> tib =
         std::make_shared<cartographer::transform::TransformInterpolationBuffer>(
-            (proto_traj));
+            (proto_odom));
     looam::ScanRegistration scan_registrar(tib);
 
     std::vector<std::string> topics;
@@ -559,48 +569,50 @@ int main(int argc, char** argv) {
         VPointCloud pcl_cloud;
         pcl::fromROSMsg(*pc2_msg, pcl_cloud);
 
-        scan_registrar.HandleLaserCloud(pc2_msg);
-        // PointCloudConstPtr corner_cloud, surf_cloud;
-        PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsLessSharp());
-        PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsLessFlat());
-
-        // The type currently being used is XYZIR, however loam uses XYZI
-        switch (b_opt_cloud_feature) {
-        case 1: // corner features extraction
-          pcl_cloud.clear();
-          // pcl::copyPointCloud(*corner_cloud, pcl_cloud);
-          // need to do manually as we want to switch axes
-          for (auto& point : corner_cloud->points) {
-              VPoint p;
-              p.x = point.z;
-              p.y = point.x;
-              p.z = point.y;
-              p.ring = 0;
-              p.intensity = point.intensity;
-              pcl_cloud.push_back(p);
-          }
-          break;
-        case 2: // surf features extraction
-          pcl_cloud.clear();
-          // pcl::copyPointCloud(*surf_cloud, pcl_cloud);
-          // need to do manually as we want to switch axes
-          for (auto& point : surf_cloud->points) {
-              VPoint p;
-              p.x = point.z;
-              p.y = point.x;
-              p.z = point.y;
-              p.ring = 0;
-              p.intensity = point.intensity;
-              pcl_cloud.push_back(p);
-          }
-          break;
-        case 0:
-        default:;
-        }
-
         // TODO: Put additional spacing condition here...
         if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
         {
+            scan_registrar.HandleLaserCloud(pc2_msg);
+            // PointCloudConstPtr corner_cloud, surf_cloud;
+            PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsLessSharp());
+            PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsLessFlat());
+            // PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsSharp());
+            // PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsFlat());
+
+            // The type currently being used is XYZIR, however loam uses XYZI
+            switch (b_opt_cloud_feature) {
+            case 1: // corner features extraction
+            pcl_cloud.clear();
+            // pcl::copyPointCloud(*corner_cloud, pcl_cloud);
+            // need to do manually as we want to switch axes
+            for (auto& point : corner_cloud->points) {
+                VPoint p;
+                p.x = point.z;
+                p.y = point.x;
+                p.z = point.y;
+                p.ring = 0;
+                p.intensity = point.intensity;
+                pcl_cloud.push_back(p);
+            }
+            break;
+            case 2: // surf features extraction
+            pcl_cloud.clear();
+            // pcl::copyPointCloud(*surf_cloud, pcl_cloud);
+            // need to do manually as we want to switch axes
+            for (auto& point : surf_cloud->points) {
+                VPoint p;
+                p.x = point.z;
+                p.y = point.x;
+                p.z = point.y;
+                p.ring = 0;
+                p.intensity = point.intensity;
+                pcl_cloud.push_back(p);
+            }
+            break;
+            case 0:
+            default:;
+            }
+
             PointCloud pcl_cloud_noNaN;
             std::vector<int> indices;
             PointCloud::Ptr t_ppcl_cloud(new PointCloud());
