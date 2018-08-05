@@ -1,10 +1,19 @@
 <launch>
 
+    <arg name="base_dir" default="/home/acad/Documents/smaller-loop/"/>
+    <arg name="bagfile" default="mediac-antic.bag"/>
+    <arg name="pbstreamout" default="imuodom-mediac-antic.pbstream"/>
     <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_odom.pbstream">-->
-    <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_imuodom_rev.pbstream">
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0.bag -odom_stream_filename /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0-imu-odom.pbstream">-->
     <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_z_sensor.pbstream">-->
     <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream">-->
     <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_sensor.pbstream">-->
+
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames /mydata/LCK-01/longmap-look80.bag -odom_stream_filename /mydata/LCK-01/longmap-look80.bag-imuodom.pbstream">-->
+    <!-- <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames /home/acad/Documents/tunnel/tunnel_2018-06-14-17-22-34_0.bag -odom_stream_filename /home/acad/Documents/tunnel/tunnel.pbstream"> -->
+
+    <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames $(arg base_dir)/$(arg bagfile) -odom_stream_filename $(arg base_dir)/$(arg pbstreamout)">
+
 	  <!--<param name="gnss_topic" value="/an_device/NavSatFix_metric_raw"/>-->
 	  <param name="gnss_topic" value="/an_device/NavSatFix_metric"/>
 	  <!--<param name="sensor_pose_x" value="-1.565"/>-->
