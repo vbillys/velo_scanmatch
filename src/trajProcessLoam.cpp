@@ -79,6 +79,7 @@
 #include <pcl/filters/normal_space.h>
 #include <pcl/filters/random_sample.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/crop_box.h>
 
 #include <pcl/io/pcd_io.h>
 
@@ -471,6 +472,9 @@ void Accumulator::AccumulateIRWithTransform(const tf::Transform & transform)
 //pcl::copyPointCloud(total_vpointcloud_, total_pointcloud_);
 //}
 
+sensor_msgs::PointCloud2ConstPtr
+FromPclToRos(const looam::ScanRegistration::PointCloudConstPtr &pcl_cloud);
+
 int main(int argc, char** argv) {
     FLAGS_alsologtostderr = true;
     google::InitGoogleLogging(argv[0]);
@@ -548,6 +552,7 @@ int main(int argc, char** argv) {
         std::make_shared<cartographer::transform::TransformInterpolationBuffer>(
             (proto_odom));
     looam::ScanRegistration scan_registrar(tib);
+    looam::LaserOdometry laser_odometer(tib);
 
     std::vector<std::string> topics;
     topics.push_back(pc_topic);
@@ -572,12 +577,42 @@ int main(int argc, char** argv) {
         // TODO: Put additional spacing condition here...
         if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
         {
+            using Rigid3d = cartographer::transform::Rigid3d;
             scan_registrar.HandleLaserCloud(pc2_msg);
+            laser_odometer.HandlRegisteredCloud(
+                FromPclToRos(scan_registrar.GetFinalCloud()),
+                FromPclToRos(scan_registrar.GetSurfPointsLessFlat()),
+                FromPclToRos(scan_registrar.GetSurfPointsFlat()),
+                FromPclToRos(scan_registrar.GetCornerPointsLessSharp()),
+                FromPclToRos(scan_registrar.GetCornerPointsSharp()), Rigid3d(),
+                Rigid3d(), Rigid3d());
             // PointCloudConstPtr corner_cloud, surf_cloud;
-            PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsLessSharp());
-            PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsLessFlat());
+            PointCloudConstPtr corner_cloud = (laser_odometer.GetCloudCornerLast());
+            PointCloudConstPtr surf_cloud = (laser_odometer.GetCloudSurfLast());
+            // PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsLessSharp());
+            // PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsLessFlat());
             // PointCloudConstPtr corner_cloud = (scan_registrar.GetCornerPointsSharp());
             // PointCloudConstPtr surf_cloud = (scan_registrar.GetSurfPointsFlat());
+            pcl::PointCloud<PointType> corner_cloud_boxed;
+            pcl::PointCloud<PointType> surf_cloud_boxed;
+            typedef pcl::CropBox<PointType> CropBox;
+            CropBox bor;
+            pcl::PointCloud<PointType>::Ptr corner_cloud_ptr = boost::make_shared<pcl::PointCloud<PointType>>(*corner_cloud);
+            pcl::PointCloud<PointType>::Ptr surf_cloud_ptr = boost::make_shared<pcl::PointCloud<PointType>>(*surf_cloud);
+            bor.setInputCloud (corner_cloud_ptr);
+            const ::Eigen::Vector4f kBoxFilterMin(-40.f,
+                                -5.f,
+                                -40.f , //-2.0f,
+                                1.f);
+            const ::Eigen::Vector4f kBoxFilterMax( 40.f,
+                                15.f,
+                                40.f,
+                                1.f);
+            bor.setMin (kBoxFilterMin);
+            bor.setMax (kBoxFilterMax);
+            bor.filter (corner_cloud_boxed);
+            bor.setInputCloud (surf_cloud_ptr);
+            bor.filter (surf_cloud_boxed);
 
             // The type currently being used is XYZIR, however loam uses XYZI
             switch (b_opt_cloud_feature) {
@@ -834,3 +869,13 @@ int main(int argc, char** argv) {
     }
 }
 
+sensor_msgs::PointCloud2ConstPtr FromPclToRos(
+        const looam::ScanRegistration::PointCloudConstPtr& pcl_cloud) {
+    auto temp_func = [&]() -> sensor_msgs::PointCloud2 {
+        sensor_msgs::PointCloud2 ros_pc;
+        pcl::toROSMsg(*pcl_cloud, ros_pc);
+        return ros_pc;
+    };
+    const sensor_msgs::PointCloud2 ros_pc_const = temp_func();
+    return boost::make_shared<const sensor_msgs::PointCloud2>(ros_pc_const);
+}
