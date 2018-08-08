@@ -1,6 +1,6 @@
 
-#ifndef CARTO_TRANSFORM_TRANSFORM_INTERPOLATION_BUFFER_H_
-#define CARTO_TRANSFORM_TRANSFORM_INTERPOLATION_BUFFER_H_
+#ifndef SRC_TRANSFORM_INTERPOLATION_BUFFER_H_
+#define SRC_TRANSFORM_INTERPOLATION_BUFFER_H_
 
 #include <vector>
 
@@ -52,4 +52,4 @@ class TransformInterpolationBuffer {
 }  // namespace transform
 }  // namespace cartographer
 
-#endif  // CARTO_TRANSFORM_TRANSFORM_INTERPOLATION_BUFFER_H_
+#endif  // SRC_TRANSFORM_INTERPOLATION_BUFFER_H_

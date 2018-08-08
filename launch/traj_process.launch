@@ -1,11 +1,34 @@
 <launch>
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/loamtraj.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag">-->
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/stk_calib_2018-02-07-16-08-23_0.pbstream -bag_filenames /home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-08-23_0.bag">-->
-	<param name="/use_sim_time" value="true"/>
+	<param name="/use_sim_time" value="false"/>
+    <arg name="base_dir" default="/home/acad/Documents/denso_calib_2/"/>
+    <arg name="bagfile" default="denso_full_round.bag"/>
+    <arg name="pbstreamfile" default="denso_gnss_imu_global_sensor_full_round_global-rev.pbstream"/>
+    <arg name="outpcdfile" default="denso-loam-corner-full.pcd"/>
+    <arg name="randomized" default="false"/>
+
+
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/.ros/denso_calib_2_0.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -pcd_filename denso_full_round_gnss_voxeled.pcd -voxel_grid_pcd">-->
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss.pcd ">-->
-	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss_randomized.pcd -random_sample_pcd">
+
+    <!-- <node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/acad/Documents/denso_calib_2/dummy-noodom.pbstream -bag_filenames /home/acad/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -pcd_filename /home/acad/Documents/denso_calib_2/map_loam?-noodom.pcd"> -->
+    <node if="$(arg randomized)" name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename $(arg base_dir)/$(arg pbstreamfile) -bag_filenames $(arg base_dir)/$(arg bagfile) -pcd_filename $(arg base_dir)/$(arg outpcdfile) -random_sample_pcd" />
+    <node unless="$(arg randomized)" name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename $(arg base_dir)/$(arg pbstreamfile) -bag_filenames $(arg base_dir)/$(arg bagfile) -pcd_filename $(arg base_dir)/$(arg outpcdfile)" />
+
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_global_sensor_full_round_global_rev.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -pcd_filename denso_full_round_gnss_global_rev.pcd">-->
+
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/agoy/Documents/denso_calib_2/denso_full_round.pbstream -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag ">-->
+
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /media/agoy/windows7/bigdata/smaller-loop/gnss_imu_global_sensor-mediac-wisec.pbstream -bag_filenames /media/agoy/windows7/bigdata/smaller-loop/mediac-wisec.bag -pcd_filename /media/agoy/windows7/bigdata/smaller-loop/mediac-wisec-global-randomized.pcd -random_sample_pcd">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /media/agoy/windows7/bigdata/smaller-loop/gnss_imu_global_sensor-mediac-wisec.pbstream -bag_filenames /media/agoy/windows7/bigdata/smaller-loop/mediac-wisec.bag -pcd_filename /media/agoy/windows7/bigdata/smaller-loop/mediac-wisec-global.pcd ">-->
+
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /mydata/LCK-01/longmap-shortened.bag-gnss-local.pbstream -bag_filenames /mydata/LCK-01/longmap-shortened.bag -pcd_filename /mydata/LCK-01/longmap-shorthened-gnss-local.pcd ">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /mydata/LCK-01/longmap-look80.bag-gnss-local.pbstream -bag_filenames /mydata/LCK-01/longmap-look80.bag -pcd_filename /mydata/LCK-01/longmap-look80-gnss-local.pcd ">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /mydata/LCK-01/draft_lck-eval-80.bag-gnss-local.pbstream -bag_filenames /mydata/LCK-01/draft_lck-eval-80.bag -pcd_filename /mydata/LCK-01/draft_lck-eval-80-gnss-local.pcd ">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /media/agoy/windows7/bigdata/speed_60/speed_60_gnss_local.pbstream -bag_filenames /media/agoy/windows7/bigdata/speed_60/speed_60.bag -pcd_filename /media/agoy/windows7/bigdata/speed_60/speed_60_gnss_local.pcd ">-->
+
+    <group ns="traj_process">
 		<param name="pc_topic" value="/velodyne_top/velodyne_points"/>
 		<!--<param name="pc_topic" value="/denso_packets"/>-->
 		<param name="publish_pc" value="true"/>
@@ -16,11 +39,13 @@
 		<param name="voxel_filter_leaf" value="0.2"/>
 		<param name="random_filter_percentage" value="0.03"/>
 
-		<param name="sensor_pose_roll" value="3.14159"/>
+		<!--<param name="sensor_pose_roll" value="3.14159"/>-->
+                <param name="sensor_pose_roll" value="0."/>
 		<!--<param name="sensor_pose_x" value="1.415"/>-->
 		<!--<param name="sensor_pose_z" value="1.698"/>-->
 		<!--<param name="sensor_pose_x" value="0,565"/>-->
 		<!--<param name="sensor_pose_z" value="-0.1"/>-->
-	</node>
+	<!-- </node> -->
+	</group>
 	<node if="0" name="vis" pkg="rviz" type="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/accumulated_point.rviz" />
 </launch>

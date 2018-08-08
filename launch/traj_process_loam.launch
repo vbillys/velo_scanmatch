@@ -1,0 +1,35 @@
+<launch>
+	<param name="/use_sim_time" value="false"/>
+    <arg name="base_dir" default="/home/acad/Documents/denso_calib_2/"/>
+    <arg name="bagfile" default="denso_full_round.bag"/>
+    <arg name="pbstreamfile" default="denso_gnss_imu_global_sensor_full_round_global-rev.pbstream"/>
+    <arg name="pbstreamodom" default="denso_gnss_imu_global_sensor_full_round_global-rev.pbstream"/>
+    <arg name="outpcdfile" default="denso-loam-corner-full.pcd"/>
+    <arg name="cloud_feature" default="1"/>
+    <!-- to use base_dir -->
+    <!-- to try use GT first -->
+    <node name="traj_process_loam" pkg="velo_scanmatch" type="traj_process_loam" output="screen" args="-traj_filename $(arg pbstreamfile) -bag_filenames $(arg bagfile) -pcd_filename $(arg outpcdfile) -odom_filename $(arg pbstreamodom)" >
+
+        <param name="use_odometry" value="true"/>
+        <param name="undistort_2d" value="true"/>
+		<param name="base_dir_path" value="$(arg base_dir)"/>
+		<param name="opt_cloud_feature" value="$(arg cloud_feature)"/>
+
+		<param name="pc_topic" value="/velodyne_top/velodyne_points"/>
+		<param name="publish_pc" value="true"/>
+		<param name="use_ref" value="false"/>
+		<param name="calibrate" value="false"/>
+		<param name="use_beamlayer" value="false"/>
+		<param name="use_passthrough" value="false"/>
+		<param name="voxel_filter_leaf" value="0.2"/>
+		<param name="random_filter_percentage" value="0.03"/>
+
+		<!--<param name="sensor_pose_roll" value="3.14159"/>-->
+                <param name="sensor_pose_roll" value="0."/>
+		<!--<param name="sensor_pose_x" value="1.415"/>-->
+		<!--<param name="sensor_pose_z" value="1.698"/>-->
+		<!--<param name="sensor_pose_x" value="0,565"/>-->
+		<!--<param name="sensor_pose_z" value="-0.1"/>-->
+	</node>
+	<node if="0" name="vis" pkg="rviz" type="rviz" args="-d $(find velo_scanmatch)/rviz_cfg/accumulated_point.rviz" />
+</launch>

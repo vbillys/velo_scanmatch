@@ -14,7 +14,9 @@ args="0.00 0.0 0.0 1.57 0.0 1.57 /map /camera_init 100" />
 <!--<arg name="bagfile" default="/home/agoy/Documents/stk_calib/tsf_stk_calib_2018-02-07-16-06-21_0.bag"/>-->
 <!--<arg name="bagfile" default="/home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-08_0.bag"/>-->
 <!--<arg name="bagfile" default="/home/agoy/Documents/stk_calib/stk_calib_2018-02-07-16-07-32_0.bag"/>-->
-<arg name="bagfile" default="/home/agoy/Documents/orss_lvl18_Mar27_2018/orss_test_2018-03-27-14-28-42_0.bag"/>
+<!--<arg name="bagfile" default="/home/agoy/Documents/orss_lvl18_Mar27_2018/orss_test_2018-03-27-14-28-42_0.bag"/>-->
+<!--<arg name="bagfile" default="/home/agoy/Documents/orss_pocc/mha_create_map.bag"/>-->
+<arg name="bagfile" default="/home/agoy/Documents/orss_pocc/sutd_may_createmap.bag"/>
   <arg name="rviz" default="true" />
 
   <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">

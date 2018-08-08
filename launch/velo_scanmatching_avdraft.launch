@@ -12,10 +12,12 @@ args="0.00 0.0 0.0 1.57 0.0 1.57 /map /camera_init 100" />
 </node>
 <!--<arg name="bagfile" default="/media/mint/362C32F52C32B02B/drv3/iseraredimu_2017-08-31-16-25-41_0.bag"/>-->
 <!--<arg name="bagfile" default="/home/agoy/Documents/stk_calib/tsf_stk_calib_2018-02-07-16-06-21_0.bag"/>-->
-<arg name="bagfile" default="/home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-57_1.bag /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-23-34_2.bag"/>
+<!--<arg name="bagfile" default="/home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-57_1.bag /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-23-34_2.bag"/>-->
+<arg name="bagfile" default="/home/agoy/Documents/calib_basement1/calib_basement_1-3.bag"/>
   <arg name="rviz" default="true" />
 
   <node pkg="velo_scanmatch" type="scanRegistration" name="scanRegistration" output="screen">
+  <!--<remap from="velodyne_points" to="/velodyne_front/velodyne_points"/>-->
   <remap from="velodyne_points" to="/velodyne_top/velodyne_points"/>
   <!--<remap from="/imu/data" to="an_device/Imu"/>-->
   <!--<remap from="/imu/data" to="/mti/sensor/imu"/>-->
@@ -25,7 +27,7 @@ args="0.00 0.0 0.0 1.57 0.0 1.57 /map /camera_init 100" />
   </node>
 
   <node pkg="velo_scanmatch" type="laserMapping" name="laserMapping" output="screen">
-    <remap from="/imu/data" to="an_device/Imu"/>
+    <!--<remap from="/imu/data" to="an_device/Imu"/>-->
   </node>
   <node pkg="velo_scanmatch" type="transformMaintenance" name="transformMaintenance" output="screen"/>
   <group if="$(arg rviz)">

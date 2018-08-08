@@ -20,6 +20,8 @@
   <build_depend>std_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>tf</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>ndtbasedloc</build_depend>
   
   <run_depend>geometry_msgs</run_depend>
   <run_depend>nav_msgs</run_depend>
@@ -28,6 +30,8 @@
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>tf</run_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>ndtbasedloc</run_depend>
 
   <test_depend>rostest</test_depend>
   <test_depend>rosbag</test_depend>

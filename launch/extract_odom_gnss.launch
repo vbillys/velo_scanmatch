@@ -1,11 +1,28 @@
 <launch>
+    <arg name="base_dir" default="/home/acad/Documents/smaller-loop/"/>
+    <arg name="bagfile" default="mediac-antic.bag"/>
+    <arg name="pbstreamout" default="gnss-mediac-antic.pbstream"/>
+    <arg name="globalpose" default="false"/>
 
     <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_odom.pbstream">-->
 	<!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-process_raw -process_imuenco -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_encoder_imuodom_rev.pbstream">-->
 	    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_z_sensor.pbstream">-->
-		<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round_rev.pbstream">
+
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_global_sensor_full_round_global-rev.pbstream">-->
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0.bag -odom_stream_filename /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0-gnss-global.pbstream">-->
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /media/agoy/windows7/bigdata/speed_60/speed_60.bag -odom_stream_filename /media/agoy/windows7/bigdata/speed_60/speed_60_gnss_local.pbstream">-->
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0.bag -odom_stream_filename /mydata/smaller-loop-20180522/mediac-antic-test_2018-05-22-14-06-37_0-gnss-local.pbstream">-->
+
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /mydata/LCK-01/draft_lck-eval-80.bag -odom_stream_filename /mydata/LCK-01/draft_lck-eval-80.bag-gnss-local.pbstream">-->
+    <!-- <node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /mydata/LCK-01/longmap-look80.bag -odom_stream_filename /mydata/LCK-01/longmap-look80.bag-gnss-local.pbstream"> -->
+
+    <node unless="$(arg globalpose)" name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames $(arg base_dir)/$(arg bagfile) -odom_stream_filename $(arg base_dir)/$(arg pbstreamout)"/>
+    <node if="$(arg globalpose)" name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames $(arg base_dir)/$(arg bagfile) -odom_stream_filename $(arg base_dir)/$(arg pbstreamout)"/>
+
+    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -gps_mode_start_zero -bag_filenames /home/agoy/Documents/denso_calib_2/denso_full_round.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_zero_sensor_full_round_rev.pbstream">-->
 		    <!--<node name="extract_odom" pkg="velo_scanmatch" type="extract_odom" output="screen" args="-gps_mode -bag_filenames /home/agoy/Documents/denso_calib_2/denso_calib_2018-02-07-11-22-21_0.bag -odom_stream_filename /home/agoy/Documents/denso_calib_2/denso_gnss_imu_sensor.pbstream">-->
 			<!--<param name="gnss_topic" value="/an_device/NavSatFix_metric_raw"/>-->
+        <group ns="extract_odom" >
 			<param name="gnss_topic" value="/an_device/NavSatFix_metric"/>
 			<!--<param name="sensor_pose_x" value="-1.565"/>-->
 			<!--<param name="sensor_pose_x" value="1.565"/>-->
@@ -40,7 +57,8 @@
 			<!--<param name="geopp_pose_qy" value="-0.006097"/>-->
 			<!--<param name="geopp_pose_qz" value="0.938129"/>-->
 
-    </node>
+    <!-- </node> -->
+    </group>
 </launch>
 
 <!--launch-prefix="gdb -ex run \-\-args"-->

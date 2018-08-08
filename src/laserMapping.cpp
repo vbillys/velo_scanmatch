@@ -691,6 +691,7 @@ int main(int argc, char** argv)
           }
         }
 
+        ROS_INFO_STREAM("valid num: " << laserCloudValidNum);
         laserCloudCornerFromMap->clear();
         laserCloudSurfFromMap->clear();
         for (int i = 0; i < laserCloudValidNum; i++) {
@@ -723,6 +724,7 @@ int main(int argc, char** argv)
         laserCloudCornerStack2->clear();
         laserCloudSurfStack2->clear();
 
+        ROS_INFO_STREAM("corner-map-num: " << laserCloudCornerFromMapNum << "surf-map-num: " << laserCloudSurfFromMapNum);
         if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100) {
           kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMap);
           kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMap);
@@ -1012,7 +1014,12 @@ int main(int argc, char** argv)
             }
           }
 
+          printf("check aftMapped: ");
+          for (int i = 0; i < 6; i++) printf(" %.18f", transformAftMapped[i]);
+          printf("\n");
           transformUpdate();
+        } else {
+            ROS_INFO("no optimization took place");
         }
 
         for (int i = 0; i < laserCloudCornerStackNum; i++) {
@@ -1143,10 +1150,10 @@ int main(int argc, char** argv)
 	aftMappedTrans.setOrigin(pos_corrected);
         tfBroadcaster.sendTransform(aftMappedTrans);
         printf("check aftMapped: ");
-        for (int i = 0; i < 6; i++) printf(" %.3f", transformAftMapped[i]);
+        for (int i = 0; i < 6; i++) printf(" %.18f", transformAftMapped[i]);
         printf("\n");
 	printf("check toBeMapped: ");
-	for (int i = 0; i < 6; i++) printf(" %.3f", transformTobeMapped[i]);
+	for (int i = 0; i < 6; i++) printf(" %.18f", transformTobeMapped[i]);
 	printf("\n");
 
 	// adding to protobuf messages
