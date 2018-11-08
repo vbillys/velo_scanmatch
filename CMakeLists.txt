@@ -4,7 +4,7 @@ project(velo_scanmatch)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_COMPILER "/home/yoga/lib/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang++")
+set(CMAKE_CXX_COMPILER "/home/yoga/libs/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/clang++")
 
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 #set(CMAKE_C_COMPILER "/usr/bin/clang")
@@ -80,8 +80,8 @@ target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} 
 add_executable(snapshotter src/snapshotter.cpp)
 target_link_libraries(snapshotter ${catkin_LIBRARIES})
 
-add_library(trajproto src/trajectory.pb.cc src/transform.pb.cc src/sensor.pb.cc)
-set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
+# add_library(trajproto src/trajectory.pb.cc src/transform.pb.cc src/sensor.pb.cc)
+# set_target_properties(trajproto PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(transformproto PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
 
 link_directories("/home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/")

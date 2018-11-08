@@ -34,6 +34,7 @@ DEFINE_bool(process_stk_odom, false, "Using STK odom tp extract");
 DEFINE_bool(gps_mode, false, "Using GNSS data to extract");
 DEFINE_bool(gps_mode_start_zero, false,
             "Compensate first reading for GNSS to zero (odom like)");
+DEFINE_bool(process_orss_gps, false, "Using GNSS data to extract");
 
 DEFINE_bool(process_imuenco, false,
             "Include 'advanced' using raw encoder and imu data");
@@ -127,6 +128,9 @@ int main(int argc, char** argv) {
     } else if (FLAGS_process_stk_odom) {
         topics.push_back(stk_vns_att_topic);
         topics.push_back(stk_veh_meas_topic);
+    } else if (FLAGS_process_orss_gps) {
+        topics.push_back(gnss_topic);
+        topics.push_back(imu_topic);
     } else {
         topics.push_back(odom_topic);
     }
@@ -631,6 +635,72 @@ int main(int argc, char** argv) {
                 }   
             }
         }
+    } else if (FLAGS_process_orss_gps) {
+        bool gps_harvest = false;
+        bool gnss_sampled = false;
+        bool imu_sampled = false;
+        ::ros::Time last_stamp_imu, last_stamp_gnss;
+        bool first_time = true;
+        cartographer::transform::Rigid3d first_rigid3d;
+
+        GpsOdomProcessor gps_odom_processor(FLAGS_gps_mode_start_zero, geopp_pose_rigid3d, sensor_pose_rigid3d);
+
+        sensor_msgs::Imu::Ptr imu_msg;
+        sensor_msgs::NavSatFix::Ptr gnss_msg;
+
+        for (const rosbag::MessageInstance& message : view) {
+            StringCode topic_key = s_mapStringToStringCode[message.getTopic()];
+
+            switch (topic_key) {
+                case eImu:
+                    imu_msg = message.instantiate<sensor_msgs::Imu>();
+                    imu_sampled = true;
+                    last_stamp_imu = message.getTime();
+                    break;
+                case eGnss:
+                    gnss_msg = message.instantiate<sensor_msgs::NavSatFix>();
+                    gnss_sampled = true;
+                    last_stamp_gnss = message.getTime();
+                    break;
+                default:
+                    break;
+            }
+
+            if (imu_sampled && gnss_sampled) {
+                if (false == gps_harvest) {
+                    if (last_stamp_gnss.toSec() - last_stamp_imu.toSec() >=
+                        0.005)  // assuming 100 Hz
+                        imu_sampled = false;
+                    else if (last_stamp_imu.toSec() -
+                                   last_stamp_gnss.toSec() >=
+                               0.005)  // assuming 100 Hz
+                        gnss_sampled = false;
+                    else
+                        gps_harvest = true;
+                }
+
+                if (gps_harvest) {
+                    auto new_node = g_traj.add_node();
+                    new_node->set_timestamp(cartographer::common::ToUniversal(
+                        cartographer_ros::FromRos(gnss_msg->header.stamp)));
+
+                    proto_rigid3ds.push_back(cartographer::transform::ToProto(
+                        gps_odom_processor.Process(*imu_msg, *gnss_msg)));
+
+                    cartographer::transform::proto::Rigid3d* t_proto_rigid3d =
+                        new cartographer::transform::proto::Rigid3d(
+                            proto_rigid3ds.back());
+                    new_node->set_allocated_pose(t_proto_rigid3d);
+                    ROS_INFO("odometry node size: %d %.6f", g_traj.node_size(),
+                             gnss_msg->header.stamp.toSec());
+
+                    imu_sampled = false;
+                    gnss_sampled = false;
+                }
+            }
+            // #endif
+        }
+
     } else {
         bool first_time = true;
         cartographer::transform::Rigid3d first_rigid3d;
