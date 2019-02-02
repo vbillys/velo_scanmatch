@@ -25,6 +25,8 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   message_generation
   eigen_conversions
+  protobuf_catkin
+  ecl_threads
   tf)
 
 #find_package(Eigen3 REQUIRED)
@@ -97,7 +99,7 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_
 #target_link_libraries(snapsaver ${catkin_LIBRARIES} )
 
 add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
-target_link_libraries(traj_process trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(traj_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc src/gps_odom_process.cc src/svy21.cc src/odom_process.cc)
 target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
@@ -107,3 +109,6 @@ target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRA
 
 add_dependencies(laserMapping ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(laserOdometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(calib_process src/calibProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
+target_link_libraries(calib_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
