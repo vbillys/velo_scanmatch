@@ -114,10 +114,17 @@ class Accumulator
     void setUseRef(const bool & use_ref){use_ref_ = use_ref;};
     void InsertScanWithTransform(VPointCloud::Ptr vpointcloud_ptr, const tf::Transform & transform);
     void AccumulateScansTransform(const tf::Transform & transform);
+    float CalcJForRingSepScans();
+
+  private:
+    const int neighbooring_for_normal_est = 20;
 
   private:
     static std::vector<VPointCloud::Ptr> RingSepScan(VPointCloud::Ptr vpointcloud_ptr);
     static VPointCloud::Ptr CleanVPointCloud(VPointCloud::Ptr vpointcloud_ptr);
+    void CalcKdtreeForAccumRingScans();
+    bool FindNearestPointInBeamScans(int i, const pcl::PointXYZ & point_in, pcl::PointXYZ & point_out, std::vector<int> & indices);
+    float ComputeProjCost(int beam, const pcl::PointXYZ & pk, const pcl::PointXYZ & nearest_p, const std::vector<int> & indices);
 
   private:
     std::vector<tf::Pose> odometry_poses_;
@@ -128,6 +135,8 @@ class Accumulator
     std::vector<std::vector<VPointCloud::Ptr>> ring_sep_scans_;
     // std::vector<VPointCloud::Ptr> accum_ring_rep_irscans_;
     std::vector<PointCloud::Ptr> accum_ring_rep_scans_;
+    // std::vector<pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal>::Ptr> accum_ring_rep_scans_ne_;
+    std::vector<pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr> accum_ring_rep_scans_kdtree_;
 
     std::vector<tf::Pose> ref_odometry_poses_;
     std::vector<VPointCloud> ref_pcl_pointclouds_;
@@ -156,9 +165,10 @@ class JExecutor
 
 float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw)
 {
-  float J = 0;
 
   accumulator_->AccumulateScansTransform(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
+
+  float J = accumulator_->CalcJForRingSepScans();
 
   // float J = accumulator_->J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
   //if (!filewriter_) filewriter_ = new std::ofstream("calibration_J_log.txt", std::ios::out | std::ios::binary);
@@ -228,6 +238,66 @@ float Accumulator::J_calc_wRPY_degree ( const double & roll, const double & pitc
 float Accumulator::J_calc_wtrans_m ( const double & x, const double & y, const double & z)
 {
   return J_calc_wTf(tf::Transform(tf::Quaternion::getIdentity(), tf::Vector3(x,y,z)));
+}
+
+void Accumulator::CalcKdtreeForAccumRingScans() {
+    for (int i=0; i<16; i++) {
+        pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr _kdtree(new pcl::KdTreeFLANN<pcl::PointXYZ>());
+        _kdtree->setInputCloud(accum_ring_rep_scans_.at(i)); 
+        accum_ring_rep_scans_kdtree_.push_back(_kdtree);
+    }
+}
+
+bool Accumulator::FindNearestPointInBeamScans(int i, const pcl::PointXYZ & point_in, pcl::PointXYZ & point_out, std::vector<int> & indices) {
+    constexpr float max_distance_between_two_points = 0.2; //0.5; //0.2; //0.36; //0.2; //0.8; //0.2;
+    
+    // std::vector<int> indices(neighbooring_for_normal_est);
+    std::vector<float> dists(neighbooring_for_normal_est);
+    accum_ring_rep_scans_kdtree_.at(i)->nearestKSearch(point_in, neighbooring_for_normal_est , indices, dists);
+    if (dists[0] < max_distance_between_two_points) {
+        point_out = accum_ring_rep_scans_.at(i)->points[indices[0]];
+        return true;
+    } else {
+        return false;
+    }
+}
+
+float Accumulator::ComputeProjCost(int beam, const pcl::PointXYZ & pk, const pcl::PointXYZ & nearest_p, const std::vector<int> & indices) {
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    std::vector<float> normal(3);
+    float curv;
+    ne.computePointNormal(*(accum_ring_rep_scans_.at(beam)), indices, normal[0], normal[1], normal[2], curv);
+    if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2])) {
+      float mag = (pk.x - nearest_p.x) * normal[0] +
+                  (pk.y - nearest_p.y) * normal[1] +
+                  (pk.z - nearest_p.z) * normal[2];
+      return mag * mag;
+    } else {
+      return 0;
+    }
+}
+
+float Accumulator::CalcJForRingSepScans() {
+
+    // init kdtrees first
+    CalcKdtreeForAccumRingScans();
+
+    float result = 0;
+    constexpr int N = 2;
+    for (int bi = 0; bi < 16; bi++) {
+        for (int bj = bi-N; bj < bi+N; bj++) {
+            int _bj = bj < 0 ? 0 : bj;
+            _bj = _bj > 15 ? 15 : _bj;
+            for (const auto& pk : *(accum_ring_rep_scans_.at(_bj))) {
+                pcl::PointXYZ nearest_p;
+                std::vector<int> indices;
+                if (FindNearestPointInBeamScans(bi, pk, nearest_p, indices)) {
+                    result += ComputeProjCost(bi, pk, nearest_p, indices);
+                }
+            }
+        }
+    }
+    return result;
 }
 
 float Accumulator::J_calc_wTf(const tf::Transform & transform)
@@ -719,7 +789,7 @@ int main(int argc, char** argv)
       J_k = jexecutor.J_calc_wEuler_andLog(
           init_x - half_width_search + k * search_resolution, init_y, init_z,
           init_roll, init_pitch, init_yaw);
-      ROS_INFO("Processing:%d/%f", load_count,
+      ROS_INFO("Processed:%d/%f", load_count,
                (1) * (((half_width_search * 2) / search_resolution) + 1));
       if (J_k < min_J_k) {
         final_val = init_x - half_width_search + k * search_resolution;
