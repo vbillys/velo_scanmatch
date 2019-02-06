@@ -19,9 +19,9 @@
 		<param name="search_resolution_rpy" value="0.1"/>
 		<param name="half_width_search_rpy" value="5"/>
 
-		<param name="init_x" value="0.0"/>
-		<param name="init_y" value="0.0"/>
-		<param name="init_z" value="0.0"/>
+		<param name="init_x" value="8.146"/>
+		<param name="init_y" value="0.928"/>
+		<param name="init_z" value="2.834"/>
 
 		<param name="init_roll" value="0.0"/>
 		<param name="init_pitch" value="0.0"/>

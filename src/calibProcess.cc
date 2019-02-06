@@ -156,7 +156,11 @@ class JExecutor
 
 float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw)
 {
-  float J = accumulator_->J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
+  float J = 0;
+
+  accumulator_->AccumulateScansTransform(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
+
+  // float J = accumulator_->J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
   //if (!filewriter_) filewriter_ = new std::ofstream("calibration_J_log.txt", std::ios::out | std::ios::binary);
   if (filewriter_.bad()) LOG(WARNING) << "something wrong with io!! canceling write...";
   else
@@ -676,6 +680,60 @@ int main(int argc, char** argv)
 
   JExecutor jexecutor(&accumulator);
 
+  float min_J_k;
+  float min_J_k_x;
+  float min_J_k_y;
+  float min_J_k_z;
+  float min_J_k_roll;
+  float min_J_k_pitch;
+  float min_J_k_yaw;
+  float min_J; //=jexecutor.J_calc_wEuler_andLog(init_x,init_y,init_z,
+               //init_roll, init_pitch, init_yaw);
+  float J_k = 0;
+  float J_k_x = 0;
+  float J_k_y = 0;
+  float J_k_z = 0;
+  float J_k_roll = 0;
+  float J_k_pitch = 0;
+  float J_k_yaw = 0;
+
+  float final_val_x;
+  float final_val_y;
+  float final_val_z;
+  float final_val_roll;
+  float final_val_pitch;
+  float final_val_yaw;
+  float final_val;
+
+  {
+    double sum = 0;
+    int load_count = 0;
+    // for(int i=0;i<5;++i)
+    // {
+    min_J_k = 10000000;
+    J_k = 0;
+    for (int k = 0;
+         k < (((half_width_search * 2) / search_resolution) + 1) && ros::ok();
+         k++) {
+      load_count += 1;
+      J_k = jexecutor.J_calc_wEuler_andLog(
+          init_x - half_width_search + k * search_resolution, init_y, init_z,
+          init_roll, init_pitch, init_yaw);
+      ROS_INFO("Processing:%d/%f", load_count,
+               (1) * (((half_width_search * 2) / search_resolution) + 1));
+      if (J_k < min_J_k) {
+        final_val = init_x - half_width_search + k * search_resolution;
+        // ROS_WARN("Optimized
+        // value=%f",init_x-half_width_search+k*search_resolution);
+        min_J_k = J_k;
+      }
+    }
+    // ROS_WARN("Optimized value x=%f",final_val+1.415);
+
+    //   sum+=final_val;
+    // }
+    ROS_WARN("Optimized value x=%f", final_val);
+  }
   exit(-1);
 
   for (const rosbag::MessageInstance &message : view) {
