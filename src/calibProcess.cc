@@ -112,12 +112,19 @@ class Accumulator
     float J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw);
 
     void setUseRef(const bool & use_ref){use_ref_ = use_ref;};
+    void InsertScanWithTransform(VPointCloud::Ptr vpointcloud_ptr, const tf::Transform & transform);
+
+  private:
+    static std::vector<VPointCloud::Ptr> RingSepScan(VPointCloud::Ptr vpointcloud_ptr);
+    static VPointCloud::Ptr CleanVPointCloud(VPointCloud::Ptr vpointcloud_ptr);
 
   private:
     std::vector<tf::Pose> odometry_poses_;
     std::vector<VPointCloud> pcl_pointclouds_;
     PointCloud::Ptr  total_pointcloud_;
     VPointCloud::Ptr total_vpointcloud_;
+
+    std::vector<std::vector<VPointCloud::Ptr>> ring_sep_scans_;
 
     std::vector<tf::Pose> ref_odometry_poses_;
     std::vector<VPointCloud> ref_pcl_pointclouds_;
@@ -158,6 +165,47 @@ float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, cons
     //ROS_INFO("logged: %s %d", buffer, n);
   }
   return J;
+}
+
+void Accumulator::InsertScanWithTransform(VPointCloud::Ptr vpointcloud_ptr, const tf::Transform & transform) {
+    odometry_poses_.push_back(transform);
+    RingSepScan(CleanVPointCloud(vpointcloud_ptr));
+}
+
+VPointCloud::Ptr Accumulator::CleanVPointCloud(VPointCloud::Ptr vpointcloud_ptr){
+  PointCloud pcl_cloud_noNaN;
+  std::vector<int> indices;
+  PointCloud::Ptr t_ppcl_cloud(new PointCloud());
+  pcl::copyPointCloud(*vpointcloud_ptr, *t_ppcl_cloud);
+  pcl::removeNaNFromPointCloud(*t_ppcl_cloud, pcl_cloud_noNaN, indices);
+  VPointCloud pcl_vcloud_noNaN;
+  pcl::copyPointCloud(*vpointcloud_ptr, indices, pcl_vcloud_noNaN);
+  // pcl_pointclouds.push_back( pcl_vcloud_noNaN);
+
+  // passthorugh
+  t_ppcl_cloud->clear();
+  pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
+  pcl::PassThrough<pcl::PointXYZ> pass;
+  pass.setInputCloud(t_ppcl_cloud);
+  pass.setFilterFieldName("x");
+  pass.setFilterLimits(0.6, 10000.0);
+  indices.clear();
+  pass.filter(indices);
+  VPointCloud::Ptr pcl_vcloud_noNaN_passthrough(new VPointCloud());
+  pcl::copyPointCloud(pcl_vcloud_noNaN, indices, *pcl_vcloud_noNaN_passthrough);
+  return pcl_vcloud_noNaN_passthrough;
+}
+
+std::vector<VPointCloud::Ptr> Accumulator::RingSepScan(VPointCloud::Ptr vpointcloud_ptr) {
+    std::vector<VPointCloud::Ptr> result;
+    // allocate 16 rings
+    for (int i=0; i<16; i++) {
+        result.push_back(VPointCloud::Ptr(new VPointCloud()));
+    }
+    for(const auto& p:*vpointcloud_ptr) {
+        result.at(p.ring)->push_back(p);
+    }
+    return result;
 }
 
 float Accumulator::J_calc_wEuler( const double & x, const double & y, const double & z, const double & roll, const double & pitch, const double & yaw)
@@ -543,11 +591,11 @@ int main(int argc, char** argv)
   ros::Publisher pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_pc", 1, true);
   ros::Publisher ref_pc_pub = nh.advertise<sensor_msgs::PointCloud2>("total_ref_pc", 1, true);
 
-  //ROS_INFO("Using traj file: %s", FLAGS_traj_filename.c_str());
+  ROS_INFO("Using traj file: %s", FLAGS_traj_filename.c_str());
   cartographer::io::ProtoStreamReader reader(FLAGS_traj_filename);
   cartographer::mapping::proto::Trajectory proto_traj;
   CHECK(reader.ReadProto(&proto_traj));
-  //ROS_INFO("nodes contained %d", proto_traj.node_size());
+  // ROS_INFO("nodes contained %d", proto_traj.node_size());
 
   for (auto i : proto_traj.node())
   {
@@ -559,7 +607,7 @@ int main(int argc, char** argv)
     transform_interpolation_buffer(proto_traj);
   rosbag::Bag bag;
   bag.open(FLAGS_bag_filenames, rosbag::bagmode::Read);
-  //ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
+  ROS_INFO("Using bag file: %s", FLAGS_bag_filenames.c_str());
 
   std::vector<std::string> topics;
   topics.push_back(pc_topic);
@@ -571,56 +619,99 @@ int main(int argc, char** argv)
   accumulator.setUseRef(b_opt_use_ref);
   //pcl::VoxelGrid<VPointCloud> sor;
   double num_points_counter=0;
+  int num_scans_in_bag = 0;
 
-  for (const rosbag::MessageInstance& message : view) 
-  {
+  for (const rosbag::MessageInstance &message : view) {
+    sensor_msgs::PointCloud2::ConstPtr pc2_msg =
+        message.instantiate<sensor_msgs::PointCloud2>();
+    if (transform_interpolation_buffer.Has(
+            cartographer_ros::FromRos(pc2_msg->header.stamp))) {
+      const cartographer::transform::Rigid3d tracking_to_map =
+          transform_interpolation_buffer.Lookup(
+              cartographer_ros::FromRos(pc2_msg->header.stamp));
+      // accumulator.GetOdometryPoses()->push_back(tf::Transform(
+      //     tf::Quaternion(
+      //         tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
+      //         tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
+      //     tf::Vector3(tracking_to_map.translation().x(),
+      //                 tracking_to_map.translation().y(),
+      //                 tracking_to_map.translation().z())));
+      ++num_points_counter;
+      VPointCloud::Ptr pcl_cloud(new VPointCloud());
+      pcl::fromROSMsg(*pc2_msg, *pcl_cloud);
+      accumulator.InsertScanWithTransform(pcl_cloud, tf::Transform(
+          tf::Quaternion(
+              tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
+              tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
+          tf::Vector3(tracking_to_map.translation().x(),
+                      tracking_to_map.translation().y(),
+                      tracking_to_map.translation().z())));
+    }
+    ++num_scans_in_bag;
+  }
+  ROS_INFO_STREAM("No. of scans that's interpolated: " << num_points_counter << " out of " << num_scans_in_bag);
+  exit(-1);
+
+  for (const rosbag::MessageInstance &message : view) {
     // if(num_points_counter>msg_end_num)
-    if(false)
-    {break;}
+    if (false) {
+      break;
+    }
 
-    sensor_msgs::PointCloud2::ConstPtr pc2_msg = message.instantiate<sensor_msgs::PointCloud2>();
+    sensor_msgs::PointCloud2::ConstPtr pc2_msg =
+        message.instantiate<sensor_msgs::PointCloud2>();
     VPointCloud pcl_cloud;
     pcl::fromROSMsg(*pc2_msg, pcl_cloud);
 
     // TODO: Put additional spacing condition here...
-    if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
-    {
+    if (transform_interpolation_buffer.Has(
+            cartographer_ros::FromRos(pc2_msg->header.stamp))) {
       // if(num_points_counter>msg_start_num)
-      if(true)
-      {
-      PointCloud pcl_cloud_noNaN;
-      std::vector<int> indices;
-      PointCloud::Ptr t_ppcl_cloud(new PointCloud());
-      pcl::copyPointCloud(pcl_cloud, *t_ppcl_cloud);
-      pcl::removeNaNFromPointCloud(*t_ppcl_cloud, pcl_cloud_noNaN, indices);
-      VPointCloud pcl_vcloud_noNaN;
-      pcl::copyPointCloud(pcl_cloud, indices, pcl_vcloud_noNaN);
-      //pcl_pointclouds.push_back( pcl_vcloud_noNaN);
+      if (true) {
+        PointCloud pcl_cloud_noNaN;
+        std::vector<int> indices;
+        PointCloud::Ptr t_ppcl_cloud(new PointCloud());
+        pcl::copyPointCloud(pcl_cloud, *t_ppcl_cloud);
+        pcl::removeNaNFromPointCloud(*t_ppcl_cloud, pcl_cloud_noNaN, indices);
+        VPointCloud pcl_vcloud_noNaN;
+        pcl::copyPointCloud(pcl_cloud, indices, pcl_vcloud_noNaN);
+        // pcl_pointclouds.push_back( pcl_vcloud_noNaN);
 
-      // passthorugh
-      t_ppcl_cloud->clear();
-      pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
-      pcl::PassThrough<pcl::PointXYZ> pass;
-      pass.setInputCloud (t_ppcl_cloud);
-      pass.setFilterFieldName ("x");
-      pass.setFilterLimits (0.6, 10000.0);
-      indices.clear();
-      pass.filter (indices);
-      VPointCloud pcl_vcloud_noNaN_passthrough;
-      pcl::copyPointCloud(pcl_vcloud_noNaN, indices, pcl_vcloud_noNaN_passthrough);
+        // passthorugh
+        t_ppcl_cloud->clear();
+        pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
+        pcl::PassThrough<pcl::PointXYZ> pass;
+        pass.setInputCloud(t_ppcl_cloud);
+        pass.setFilterFieldName("x");
+        pass.setFilterLimits(0.6, 10000.0);
+        indices.clear();
+        pass.filter(indices);
+        VPointCloud pcl_vcloud_noNaN_passthrough;
+        pcl::copyPointCloud(pcl_vcloud_noNaN, indices,
+                            pcl_vcloud_noNaN_passthrough);
 
-      accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN);
-      //accumulator.GetVectorClouds()->push_back( pcl_vcloud_noNaN_passthrough);
+        accumulator.GetVectorClouds()->push_back(pcl_vcloud_noNaN);
+        // accumulator.GetVectorClouds()->push_back(
+        // pcl_vcloud_noNaN_passthrough);
 
-      const cartographer::transform::Rigid3d tracking_to_map =
-	transform_interpolation_buffer.Lookup(cartographer_ros::FromRos(pc2_msg->header.stamp));
-      // TO DO plug in transform param here...
-      //const cartographer::transform::Rigid3d sensor_to_tracking;
-      //const cartographer::transform::Rigid3f sensor_to_map =
-	//(tracking_to_map * sensor_to_tracking).cast<float>();
-      //odometry_poses.push_back(tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
-      accumulator.GetOdometryPoses()->push_back( tf::Transform( tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()), tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
-      LOG(INFO) << tracking_to_map;
+        const cartographer::transform::Rigid3d tracking_to_map =
+            transform_interpolation_buffer.Lookup(
+                cartographer_ros::FromRos(pc2_msg->header.stamp));
+        // TO DO plug in transform param here...
+        // const cartographer::transform::Rigid3d sensor_to_tracking;
+        // const cartographer::transform::Rigid3f sensor_to_map =
+        //(tracking_to_map * sensor_to_tracking).cast<float>();
+        // odometry_poses.push_back(tf::Transform(
+        // tf::Quaternion(tracking_to_map.rotation().x(),tracking_to_map.rotation().y(),tracking_to_map.rotation().z(),tracking_to_map.rotation().w()),
+        // tf::Vector3(tracking_to_map.translation().x(),tracking_to_map.translation().y(),tracking_to_map.translation().z())));
+        accumulator.GetOdometryPoses()->push_back(tf::Transform(
+            tf::Quaternion(
+                tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
+                tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
+            tf::Vector3(tracking_to_map.translation().x(),
+                        tracking_to_map.translation().y(),
+                        tracking_to_map.translation().z())));
+        LOG(INFO) << tracking_to_map;
       }
       ++num_points_counter;
     }

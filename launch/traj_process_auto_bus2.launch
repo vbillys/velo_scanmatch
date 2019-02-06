@@ -2,7 +2,7 @@
 	
 	<param name="/use_sim_time" value="true"/>
 	
-	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward20.pbstream -bag_filenames /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward.bag">
+	<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward20.pbstream -bag_filenames /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward.bag">
 		<!--<param name="pc_topic" value="/velodyne_top/velodyne_points"/>-->
 		<param name="pc_topic" value="/velodyne_front/velodyne_points"/>
 		<param name="publish_pc" value="false"/>
