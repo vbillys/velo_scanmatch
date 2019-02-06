@@ -113,6 +113,7 @@ class Accumulator
 
     void setUseRef(const bool & use_ref){use_ref_ = use_ref;};
     void InsertScanWithTransform(VPointCloud::Ptr vpointcloud_ptr, const tf::Transform & transform);
+    void AccumulateScansTransform(const tf::Transform & transform);
 
   private:
     static std::vector<VPointCloud::Ptr> RingSepScan(VPointCloud::Ptr vpointcloud_ptr);
@@ -125,6 +126,8 @@ class Accumulator
     VPointCloud::Ptr total_vpointcloud_;
 
     std::vector<std::vector<VPointCloud::Ptr>> ring_sep_scans_;
+    // std::vector<VPointCloud::Ptr> accum_ring_rep_irscans_;
+    std::vector<PointCloud::Ptr> accum_ring_rep_scans_;
 
     std::vector<tf::Pose> ref_odometry_poses_;
     std::vector<VPointCloud> ref_pcl_pointclouds_;
@@ -169,7 +172,7 @@ float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, cons
 
 void Accumulator::InsertScanWithTransform(VPointCloud::Ptr vpointcloud_ptr, const tf::Transform & transform) {
     odometry_poses_.push_back(transform);
-    RingSepScan(CleanVPointCloud(vpointcloud_ptr));
+    ring_sep_scans_.push_back(RingSepScan(CleanVPointCloud(vpointcloud_ptr)));
 }
 
 VPointCloud::Ptr Accumulator::CleanVPointCloud(VPointCloud::Ptr vpointcloud_ptr){
@@ -473,6 +476,26 @@ float Accumulator::J_calc_wTf(const tf::Transform & transform)
   return J;
 }
 
+void Accumulator::AccumulateScansTransform(const tf::Transform & transform) {
+    // clear/renew first
+    accum_ring_rep_scans_.clear();
+    for (int i=0; i<16; i++) {
+        accum_ring_rep_scans_.push_back(PointCloud::Ptr(new PointCloud()));
+    }
+    int index = 0;
+    for (const auto& ringed_scans : ring_sep_scans_) {
+        for (int i=0; i<16; i++) {
+          PointCloud t_pc;
+          PointCloud transformed_pointcloud;
+          pcl::copyPointCloud(*(ringed_scans.at(i)), t_pc);
+          pcl_ros::transformPointCloud(t_pc, transformed_pointcloud,
+                                       odometry_poses_[index] * transform);
+          *(accum_ring_rep_scans_.at(i)) += transformed_pointcloud;
+        }
+        ++index;
+    }
+}
+
 void Accumulator::AccumulateWithTransform(const tf::Transform & transform)
 {
   int index = 0; total_pointcloud_->clear();
@@ -650,6 +673,9 @@ int main(int argc, char** argv)
     ++num_scans_in_bag;
   }
   ROS_INFO_STREAM("No. of scans that's interpolated: " << num_points_counter << " out of " << num_scans_in_bag);
+
+  JExecutor jexecutor(&accumulator);
+
   exit(-1);
 
   for (const rosbag::MessageInstance &message : view) {
