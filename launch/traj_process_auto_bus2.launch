@@ -2,7 +2,9 @@
 	
 	<param name="/use_sim_time" value="true"/>
 	
-	<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward20.pbstream -bag_filenames /code/jupyter_notebook/data/bags/bus2calib/bus2-interf-left_forward.bag">
+	<!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-left_forward20.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-left_forward.bag">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-a_straight_foward.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-a_straight_foward.bag">-->
+        <node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-left_forward_zero.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-left_forward.bag">
 		<!--<param name="pc_topic" value="/velodyne_top/velodyne_points"/>-->
 		<param name="pc_topic" value="/velodyne_front/velodyne_points"/>
 		<param name="publish_pc" value="false"/>
@@ -10,8 +12,12 @@
 		<param name="calibrate" value="true"/>
 
 		<param name="mode" value="6"/>
-		<param name="search_resolution" value="0.1"/>
-		<param name="half_width_search" value="5"/>
+                <!--<param name="search_resolution" value="0.1"/>-->
+                <param name="search_resolution" value="0.5"/>
+                <param name="half_width_search" value="5"/>
+		<!--<param name="search_resolution" value="0.025"/>-->
+                <!--<param name="half_width_search" value="1"/>-->
+                <!--<param name="half_width_search" value="0.05"/>-->
 
 		<param name="search_resolution_xyz" value="0.01"/>
 		<param name="half_width_search_xyz" value="0.50"/>
@@ -19,9 +25,18 @@
 		<param name="search_resolution_rpy" value="0.1"/>
 		<param name="half_width_search_rpy" value="5"/>
 
-		<param name="init_x" value="8.146"/>
-		<param name="init_y" value="0.928"/>
-		<param name="init_z" value="2.834"/>
+		<!--<param name="init_x" value="8.146"/>-->
+		<!--<param name="init_y" value="0.928"/>-->
+		<!--<param name="init_z" value="2.834"/>-->
+                <param name="init_x" value="8.324"/>
+		<!--<param name="init_x" value="12.624"/>-->
+                <!--<param name="init_x" value="20.624"/>-->
+                <param name="init_y" value="0.650"/>
+                <!--<param name="init_y" value="2.150"/>-->
+                <param name="init_z" value="2.643"/>
+		<!--<param name="init_x" value="0"/>-->
+		<!--<param name="init_y" value="0"/>-->
+		<!--<param name="init_z" value="0"/>-->
 
 		<param name="init_roll" value="0.0"/>
 		<param name="init_pitch" value="0.0"/>

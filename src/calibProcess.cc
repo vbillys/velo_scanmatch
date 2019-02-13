@@ -83,6 +83,8 @@ DEFINE_string(bag_filenames, "",
     "Bags to process, must be in the same order as the trajectories "
     "in 'pose_graph_filename'.");
 
+std::ofstream filewriter;
+
 class Accumulator
 {
   public:
@@ -172,13 +174,13 @@ float JExecutor::J_calc_wEuler_andLog ( const double & x, const double & y, cons
 
   // float J = accumulator_->J_calc_wTf(tf::Transform(tf::createQuaternionFromRPY(roll*M_PI/180, pitch*M_PI/180, yaw*M_PI/180), tf::Vector3(x,y,z)));
   //if (!filewriter_) filewriter_ = new std::ofstream("calibration_J_log.txt", std::ios::out | std::ios::binary);
-  if (filewriter_.bad()) LOG(WARNING) << "something wrong with io!! canceling write...";
+  if (filewriter.bad()) LOG(WARNING) << "something wrong with io!! canceling write...";
   else
   {
     int n=0; char buffer[200];
     n += sprintf(buffer, "%07.5f %07.5f %07.5f %07.5f %07.5f %07.5f %07.5f\n", x, y, z, roll, pitch, yaw, J);
-    filewriter_.write(buffer, n);
-    filewriter_.flush();
+    filewriter.write(buffer, n);
+    filewriter.flush();
     //ROS_INFO("logged: %s %d", buffer, n);
   }
   return J;
@@ -254,8 +256,26 @@ bool Accumulator::FindNearestPointInBeamScans(int i, const pcl::PointXYZ & point
     // std::vector<int> indices(neighbooring_for_normal_est);
     std::vector<float> dists(neighbooring_for_normal_est);
     accum_ring_rep_scans_kdtree_.at(i)->nearestKSearch(point_in, neighbooring_for_normal_est , indices, dists);
-    if (dists[0] < max_distance_between_two_points) {
-        point_out = accum_ring_rep_scans_.at(i)->points[indices[0]];
+    //if (dists[0] < max_distance_between_two_points) {
+    //if (dists[0] < 0.04 && dist[19] < 0.04) {
+    // find minimum
+    float _min_d = 1e8;
+    int _min_index, t_index = 0;
+    //ROS_WARN_STREAM("pk: " << point_in.x <<  " " << point_in.y <<  " " << point_in.z);
+    for (const float& dist : dists) {
+        if (dist < _min_d) { 
+            _min_d = dist;
+            _min_index = indices[t_index];
+        }
+        auto pt = accum_ring_rep_scans_.at(i)->points[indices[t_index]];
+        //ROS_WARN_STREAM("pointcons: " << pt.x <<  " " << pt.y <<  " " << pt.z << " dist: " << dist);
+        ++t_index;
+    }
+    //if (dists[0] < 0.04) {
+    if (_min_d < 0.04 && dists[1] < 0.04) {
+        //point_out = accum_ring_rep_scans_.at(i)->points[indices[0]];
+        //point_out = accum_ring_rep_scans_.at(i)->points[_min_index];
+        point_out = accum_ring_rep_scans_.at(i)->points[indices[1]];
         return true;
     } else {
         return false;
@@ -267,10 +287,15 @@ float Accumulator::ComputeProjCost(int beam, const pcl::PointXYZ & pk, const pcl
     std::vector<float> normal(3);
     float curv;
     ne.computePointNormal(*(accum_ring_rep_scans_.at(beam)), indices, normal[0], normal[1], normal[2], curv);
+    //ROS_FATAL_STREAM("normals: " << normal[0] <<  " " << normal[1] <<  " " << normal[2]);
+    //ROS_FATAL_STREAM("pk: " << pk.x <<  " " << pk.y <<  " " << pk.z);
+    //ROS_FATAL_STREAM("nearest: " << nearest_p.x <<  " " << nearest_p.y <<  " " << nearest_p.z);
+    //CHECK(false);
     if (pcl_isfinite(normal[0]) && pcl_isfinite(normal[1]) && pcl_isfinite(normal[2])) {
       float mag = (pk.x - nearest_p.x) * normal[0] +
                   (pk.y - nearest_p.y) * normal[1] +
                   (pk.z - nearest_p.z) * normal[2];
+      //ROS_INFO_STREAM(mag);
       return mag * mag;
     } else {
       return 0;
@@ -290,13 +315,18 @@ float Accumulator::CalcJForRingSepScans() {
             _bj = _bj > 15 ? 15 : _bj;
             for (const auto& pk : *(accum_ring_rep_scans_.at(_bj))) {
                 pcl::PointXYZ nearest_p;
-                std::vector<int> indices;
+                std::vector<int> indices(neighbooring_for_normal_est);
                 if (FindNearestPointInBeamScans(bi, pk, nearest_p, indices)) {
-                    result += ComputeProjCost(bi, pk, nearest_p, indices);
+                    float _result = ComputeProjCost(bi, pk, nearest_p, indices);
+                    //result += ComputeProjCost(bi, pk, nearest_p, indices);
+                    result += _result;
+                    //ROS_INFO_STREAM(_result);
+                    //CHECK(_result <= 100.);
                 }
             }
         }
     }
+    ROS_INFO_STREAM(result);
     return result;
 }
 
@@ -680,7 +710,8 @@ int main(int argc, char** argv)
   pnh.param("starting_mssg_number",msg_start_num,200.0);
   pnh.param("ending_mssg_number",msg_end_num,600.0);
 
-  std::ofstream filewriter(std::ofstream("calibration_J_log_results.txt", std::ios::out | std::ios::binary));
+  //std::ofstream filewriter(std::ofstream("calibration_J_log_results.txt", std::ios::out | std::ios::binary));
+  filewriter = (std::ofstream("calibration_J_log_results.txt", std::ios::out | std::ios::binary));
   // init_x-=1.415;
   // init_z-=1.698;
   // init_yaw*= -1;
@@ -712,43 +743,49 @@ int main(int argc, char** argv)
 
   //std::vector<tf::Pose> odometry_poses;
   //std::vector<VPointCloud> pcl_pointclouds;
-  Accumulator accumulator;
-  accumulator.setUseRef(b_opt_use_ref);
-  //pcl::VoxelGrid<VPointCloud> sor;
-  double num_points_counter=0;
-  int num_scans_in_bag = 0;
 
-  for (const rosbag::MessageInstance &message : view) {
-    sensor_msgs::PointCloud2::ConstPtr pc2_msg =
-        message.instantiate<sensor_msgs::PointCloud2>();
-    if (transform_interpolation_buffer.Has(
-            cartographer_ros::FromRos(pc2_msg->header.stamp))) {
-      const cartographer::transform::Rigid3d tracking_to_map =
-          transform_interpolation_buffer.Lookup(
-              cartographer_ros::FromRos(pc2_msg->header.stamp));
-      // accumulator.GetOdometryPoses()->push_back(tf::Transform(
-      //     tf::Quaternion(
-      //         tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
-      //         tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
-      //     tf::Vector3(tracking_to_map.translation().x(),
-      //                 tracking_to_map.translation().y(),
-      //                 tracking_to_map.translation().z())));
-      ++num_points_counter;
-      VPointCloud::Ptr pcl_cloud(new VPointCloud());
-      pcl::fromROSMsg(*pc2_msg, *pcl_cloud);
-      accumulator.InsertScanWithTransform(pcl_cloud, tf::Transform(
-          tf::Quaternion(
-              tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
-              tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
-          tf::Vector3(tracking_to_map.translation().x(),
-                      tracking_to_map.translation().y(),
-                      tracking_to_map.translation().z())));
-    }
-    ++num_scans_in_bag;
-  }
-  ROS_INFO_STREAM("No. of scans that's interpolated: " << num_points_counter << " out of " << num_scans_in_bag);
+  // HERE MOVED
+  //Accumulator accumulator;
+  //accumulator.setUseRef(b_opt_use_ref);
+  ////pcl::VoxelGrid<VPointCloud> sor;
+  //double num_points_counter=0;
+  //int num_scans_in_bag = 0;
 
-  JExecutor jexecutor(&accumulator);
+  //for (const rosbag::MessageInstance &message : view) {
+    //sensor_msgs::PointCloud2::ConstPtr pc2_msg =
+        //message.instantiate<sensor_msgs::PointCloud2>();
+    //if (transform_interpolation_buffer.Has(
+            //cartographer_ros::FromRos(pc2_msg->header.stamp))) {
+      //const cartographer::transform::Rigid3d tracking_to_map =
+          //transform_interpolation_buffer.Lookup(
+              //cartographer_ros::FromRos(pc2_msg->header.stamp));
+      //using Rigid3d = cartographer::transform::Rigid3d;
+      ////Rigid3d _tracking_to_map = tracking_to_map * Rigid3d(Rigid3d::Vector(init_x, init_y, init_z), cartographer::transform::RollPitchYaw(init_roll, init_pitch, init_yaw)).inverse();
+      //Rigid3d _tracking_to_map = tracking_to_map;
+      //// accumulator.GetOdometryPoses()->push_back(tf::Transform(
+      ////     tf::Quaternion(
+      ////         tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
+      ////         tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
+      ////     tf::Vector3(tracking_to_map.translation().x(),
+      ////                 tracking_to_map.translation().y(),
+      ////                 tracking_to_map.translation().z())));
+      //++num_points_counter;
+      //VPointCloud::Ptr pcl_cloud(new VPointCloud());
+      //pcl::fromROSMsg(*pc2_msg, *pcl_cloud);
+      //accumulator.InsertScanWithTransform(pcl_cloud, tf::Transform(
+          //tf::Quaternion(
+              //_tracking_to_map.rotation().x(), _tracking_to_map.rotation().y(),
+              //_tracking_to_map.rotation().z(), _tracking_to_map.rotation().w()),
+          //tf::Vector3(_tracking_to_map.translation().x(),
+                      //_tracking_to_map.translation().y(),
+                      //_tracking_to_map.translation().z())));
+    //}
+    //++num_scans_in_bag;
+  //}
+  //ROS_INFO_STREAM("No. of scans that's interpolated: " << num_points_counter << " out of " << num_scans_in_bag);
+
+  //JExecutor jexecutor(&accumulator);
+  //DONE MOVED
 
   float min_J_k;
   float min_J_k_x;
@@ -785,14 +822,72 @@ int main(int argc, char** argv)
     for (int k = 0;
          k < (((half_width_search * 2) / search_resolution) + 1) && ros::ok();
          k++) {
+
+    // HERE MOVED
+    Accumulator accumulator;
+    {
+    accumulator.setUseRef(b_opt_use_ref);
+    //pcl::VoxelGrid<VPointCloud> sor;
+    double num_points_counter=0;
+    int num_scans_in_bag = 0;
+
+    for (const rosbag::MessageInstance &message : view) {
+    sensor_msgs::PointCloud2::ConstPtr pc2_msg =
+    message.instantiate<sensor_msgs::PointCloud2>();
+    if (transform_interpolation_buffer.Has(
+    cartographer_ros::FromRos(pc2_msg->header.stamp))) {
+    const cartographer::transform::Rigid3d tracking_to_map =
+    transform_interpolation_buffer.Lookup(
+    cartographer_ros::FromRos(pc2_msg->header.stamp));
+    using Rigid3d = cartographer::transform::Rigid3d;
+    //Rigid3d _tracking_to_map = tracking_to_map * Rigid3d(Rigid3d::Vector(init_x, init_y, init_z), cartographer::transform::RollPitchYaw(init_roll, init_pitch, init_yaw)).inverse();
+    Rigid3d _tracking_to_map = tracking_to_map;
+    // accumulator.GetOdometryPoses()->push_back(tf::Transform(
+    //     tf::Quaternion(
+    //         tracking_to_map.rotation().x(), tracking_to_map.rotation().y(),
+    //         tracking_to_map.rotation().z(), tracking_to_map.rotation().w()),
+    //     tf::Vector3(tracking_to_map.translation().x(),
+    //                 tracking_to_map.translation().y(),
+    //                 tracking_to_map.translation().z())));
+    ++num_points_counter;
+    VPointCloud::Ptr pcl_cloud(new VPointCloud());
+    pcl::fromROSMsg(*pc2_msg, *pcl_cloud);
+    accumulator.InsertScanWithTransform(pcl_cloud, tf::Transform(
+    tf::Quaternion(
+    _tracking_to_map.rotation().x(), _tracking_to_map.rotation().y(),
+    _tracking_to_map.rotation().z(), _tracking_to_map.rotation().w()),
+    tf::Vector3(_tracking_to_map.translation().x(),
+    _tracking_to_map.translation().y(),
+    _tracking_to_map.translation().z())));
+    }
+    ++num_scans_in_bag;
+    }
+    ROS_INFO_STREAM("No. of scans that's interpolated: " << num_points_counter << " out of " << num_scans_in_bag);
+    }
+
+    JExecutor jexecutor(&accumulator);
+    // DONE MOVED
+
       load_count += 1;
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+          //init_x - half_width_search + k * search_resolution, init_y, init_z,
+          //init_roll, init_pitch, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y - half_width_search + k * search_resolution, init_z,
+              //init_roll, init_pitch, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y, init_z- half_width_search + k * search_resolution,
+              //init_roll, init_pitch, init_yaw);
       J_k = jexecutor.J_calc_wEuler_andLog(
-          init_x - half_width_search + k * search_resolution, init_y, init_z,
-          init_roll, init_pitch, init_yaw);
+              init_x, init_y, init_z,
+              init_roll- half_width_search + k * search_resolution, init_pitch, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y, init_z,
+              //init_roll, init_pitch, init_yaw);
       ROS_INFO("Processed:%d/%f", load_count,
                (1) * (((half_width_search * 2) / search_resolution) + 1));
       if (J_k < min_J_k) {
-        final_val = init_x - half_width_search + k * search_resolution;
+        final_val = init_roll - half_width_search + k * search_resolution;
         // ROS_WARN("Optimized
         // value=%f",init_x-half_width_search+k*search_resolution);
         min_J_k = J_k;
@@ -802,10 +897,11 @@ int main(int argc, char** argv)
 
     //   sum+=final_val;
     // }
-    ROS_WARN("Optimized value x=%f", final_val);
+    ROS_WARN("Optimized value roll=%f", final_val);
   }
   exit(-1);
 
+#if 0
   for (const rosbag::MessageInstance &message : view) {
     // if(num_points_counter>msg_end_num)
     if (false) {
@@ -1395,4 +1491,5 @@ int main(int argc, char** argv)
     } 
   }
   
+#endif
 }
