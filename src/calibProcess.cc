@@ -875,19 +875,25 @@ int main(int argc, char** argv)
       //J_k = jexecutor.J_calc_wEuler_andLog(
               //init_x, init_y - half_width_search + k * search_resolution, init_z,
               //init_roll, init_pitch, init_yaw);
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-              //init_x, init_y, init_z- half_width_search + k * search_resolution,
-              //init_roll, init_pitch, init_yaw);
       J_k = jexecutor.J_calc_wEuler_andLog(
-              init_x, init_y, init_z,
-              init_roll- half_width_search + k * search_resolution, init_pitch, init_yaw);
+              init_x, init_y, init_z- half_width_search + k * search_resolution,
+              init_roll, init_pitch, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y, init_z,
+              //init_roll- half_width_search + k * search_resolution, init_pitch, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y, init_z,
+              //init_roll, init_pitch- half_width_search + k * search_resolution, init_yaw);
+      //J_k = jexecutor.J_calc_wEuler_andLog(
+              //init_x, init_y, init_z,
+              //init_roll, init_pitch, init_yaw- half_width_search + k * search_resolution);
       //J_k = jexecutor.J_calc_wEuler_andLog(
               //init_x, init_y, init_z,
               //init_roll, init_pitch, init_yaw);
       ROS_INFO("Processed:%d/%f", load_count,
                (1) * (((half_width_search * 2) / search_resolution) + 1));
       if (J_k < min_J_k) {
-        final_val = init_roll - half_width_search + k * search_resolution;
+        final_val = init_z - half_width_search + k * search_resolution;
         // ROS_WARN("Optimized
         // value=%f",init_x-half_width_search+k*search_resolution);
         min_J_k = J_k;
@@ -897,7 +903,7 @@ int main(int argc, char** argv)
 
     //   sum+=final_val;
     // }
-    ROS_WARN("Optimized value roll=%f", final_val);
+    ROS_WARN("Optimized value z=%f", final_val);
   }
   exit(-1);
 
