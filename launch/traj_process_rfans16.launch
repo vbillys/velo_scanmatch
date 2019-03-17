@@ -1,0 +1,14 @@
+<launch>
+	<param name="/use_sim_time" value="true"/>
+	<node name="traj_process" pkg="velo_scanmatch" type="traj_process" output="screen" args="-traj_filename /home/zenbook/.ros/makkan_joy_fo16.pbstream -bag_filenames /mnt/c/Users/vbill/Downloads/makkan_joy_frontonly.bag -pcd_filename /home/zenbook/makkan_joy_fo16_raw.pcd">
+		<param name="pc_topic" value="/rfans_driver/rfans_points_top"/>
+		<!--<param name="pc_topic" value="/denso_packets"/>-->
+		<param name="publish_pc" value="true"/>
+		<param name="use_ref" value="false"/>
+		<param name="calibrate" value="false"/>
+		<param name="use_beamlayer" value="false"/>
+		<param name="use_passthrough" value="false"/>
+		<param name="voxel_filter_leaf" value="0.2"/>
+		<param name="random_filter_percentage" value="0.23"/>
+	</node>
+</launch>
