@@ -43,6 +43,7 @@ include_directories(
   include
   include/dataFramework
         ${LUA_INCLUDE_DIR}
+    /usr/include/lua5.2
 	${CERES_INCLUDE_DIRS}
 	${catkin_INCLUDE_DIRS} 
 #	${EIGEN3_INCLUDE_DIR}
@@ -91,7 +92,7 @@ add_executable(snapaccumer src/snapaccumer.cpp src/proto_stream.cc src/transform
 #add_executable(snapaccumer src/transform.pb.cc src/snapaccumer.cpp )
 set_target_properties(snapaccumer PROPERTIES COMPILE_FLAGS "-I/home/loc22/Documents/workspace/protobuf-3.5.1/install/include -pthread" )
 #set_target_properties(snapaccumer PROPERTIES LINK_FLAGS "-rdynamic /home/loc22/Documents/workspace/protobuf-3.5.1/install/lib/libprotobuf.so -pthread -lpthread")
-target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES} ${LUA_LIBRARIES})
+target_link_libraries(snapaccumer ${catkin_LIBRARIES} trajproto protobuf ${CERES_LIBRARIES} ${LUA_LIBRARIES} /usr/lib/x86_64-linux-gnu/liblua5.2.a)
 
 target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_LIBRARIES} ${OpenCV_LIBS} glog)
 
@@ -99,10 +100,10 @@ target_link_libraries(laserMapping ${catkin_LIBRARIES} trajproto protobuf ${PCL_
 #target_link_libraries(snapsaver ${catkin_LIBRARIES} )
 
 add_executable(traj_process src/trajProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
-target_link_libraries(traj_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(traj_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES} /usr/lib/x86_64-linux-gnu/liblua5.2.a)
 
 add_executable(extract_odom src/extractOdomToProto.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/odom_calc.cc src/gps_odom_process.cc src/svy21.cc src/odom_process.cc)
-target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES})
+target_link_libraries(extract_odom trajproto glog gflags protobuf ${catkin_LIBRARIES} ${LUA_LIBRARIES} /usr/lib/x86_64-linux-gnu/liblua5.2.a)
 
 # add_executable(test_write_pcd src/test_write_pcd.cc)
 # target_link_libraries(test_write_pcd ${catkin_LIBRARIES})
@@ -111,4 +112,7 @@ add_dependencies(laserMapping ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPOR
 add_dependencies(laserOdometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(calib_process src/calibProcess.cc src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
-target_link_libraries(calib_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(calib_process trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES} /usr/lib/x86_64-linux-gnu/liblua5.2.a)
+
+add_executable(calib_two_traj src/calibTwoTraj.cpp src/proto_stream.cc src/transform_interpolation_buffer.cc src/proto_stream.cc src/rigid_transform.cc src/time.cc src/transform.cc src/lua_parameter_dictionary.cc src/time_conversion.cc src/gps_odom.cc)
+target_link_libraries(calib_two_traj trajproto glog gflags ${catkin_LIBRARIES} ${LUA_LIBRARIES} ${PCL_LIBRARIES} /usr/lib/x86_64-linux-gnu/liblua5.2.a)

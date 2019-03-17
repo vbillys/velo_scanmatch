@@ -712,11 +712,13 @@ int main(int argc, char** argv)
 
         laserCloudCornerStack->clear();
         downSizeFilterCorner.setInputCloud(laserCloudCornerStack2);
+        // ROS_INFO_STREAM("downsizefiltercorner 1");
         downSizeFilterCorner.filter(*laserCloudCornerStack);
         int laserCloudCornerStackNum = laserCloudCornerStack->points.size();
 
         laserCloudSurfStack->clear();
         downSizeFilterSurf.setInputCloud(laserCloudSurfStack2);
+        // ROS_INFO_STREAM("downsizefiltersurf 1");
         downSizeFilterSurf.filter(*laserCloudSurfStack);
         int laserCloudSurfStackNum = laserCloudSurfStack->points.size();
 
@@ -1058,10 +1060,12 @@ int main(int argc, char** argv)
 
           laserCloudCornerArray2[ind]->clear();
           downSizeFilterCorner.setInputCloud(laserCloudCornerArray[ind]);
+          // ROS_INFO_STREAM("downsizefiltercorner 2");
           downSizeFilterCorner.filter(*laserCloudCornerArray2[ind]);
 
           laserCloudSurfArray2[ind]->clear();
           downSizeFilterSurf.setInputCloud(laserCloudSurfArray[ind]);
+          // ROS_INFO_STREAM("downsizefiltersurf 2");
           downSizeFilterSurf.filter(*laserCloudSurfArray2[ind]);
 
           pcl::PointCloud<PointType>::Ptr laserCloudTemp = laserCloudCornerArray[ind];
@@ -1086,6 +1090,7 @@ int main(int argc, char** argv)
 
           laserCloudSurround->clear();
           downSizeFilterCorner.setInputCloud(laserCloudSurround2);
+          // ROS_INFO_STREAM("downsizefiltercorner 3");
           downSizeFilterCorner.filter(*laserCloudSurround);
 
           sensor_msgs::PointCloud2 laserCloudSurround3;

@@ -260,6 +260,7 @@ bool Accumulator::FindNearestPointInBeamScans(int i, const pcl::PointXYZ & point
     //if (dists[0] < 0.04 && dist[19] < 0.04) {
     // find minimum
     float _min_d = 1e8;
+    float _max_d = 0;
     int _min_index, t_index = 0;
     //ROS_WARN_STREAM("pk: " << point_in.x <<  " " << point_in.y <<  " " << point_in.z);
     for (const float& dist : dists) {
@@ -267,12 +268,15 @@ bool Accumulator::FindNearestPointInBeamScans(int i, const pcl::PointXYZ & point
             _min_d = dist;
             _min_index = indices[t_index];
         }
+        if (dist > _max_d) { 
+            _max_d = dist;
+        }
         auto pt = accum_ring_rep_scans_.at(i)->points[indices[t_index]];
         //ROS_WARN_STREAM("pointcons: " << pt.x <<  " " << pt.y <<  " " << pt.z << " dist: " << dist);
         ++t_index;
     }
     //if (dists[0] < 0.04) {
-    if (_min_d < 0.04 && dists[1] < 0.04) {
+    if (_min_d < 0.04 && dists[1] < 0.04 && _max_d < 0.25) {
         //point_out = accum_ring_rep_scans_.at(i)->points[indices[0]];
         //point_out = accum_ring_rep_scans_.at(i)->points[_min_index];
         point_out = accum_ring_rep_scans_.at(i)->points[indices[1]];
@@ -308,7 +312,8 @@ float Accumulator::CalcJForRingSepScans() {
     CalcKdtreeForAccumRingScans();
 
     float result = 0;
-    constexpr int N = 2;
+    int no_of_match = 0;
+    constexpr int N = 1; //2;
     for (int bi = 0; bi < 16; bi++) {
         for (int bj = bi-N; bj < bi+N; bj++) {
             int _bj = bj < 0 ? 0 : bj;
@@ -322,10 +327,12 @@ float Accumulator::CalcJForRingSepScans() {
                     result += _result;
                     //ROS_INFO_STREAM(_result);
                     //CHECK(_result <= 100.);
+                    ++no_of_match;
                 }
             }
         }
     }
+    //if (no_of_match > 1) result = (result*1e6 / no_of_match);
     ROS_INFO_STREAM(result);
     return result;
 }
@@ -739,7 +746,9 @@ int main(int argc, char** argv)
 
   std::vector<std::string> topics;
   topics.push_back(pc_topic);
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
+  //rosbag::View view(bag, rosbag::TopicQuery(topics));
+  rosbag::View tview(bag);
+  rosbag::View view(bag, rosbag::TopicQuery(topics), ros::TIME_MIN, tview.getBeginTime()+ros::Duration(35.));
 
   //std::vector<tf::Pose> odometry_poses;
   //std::vector<VPointCloud> pcl_pointclouds;
@@ -869,31 +878,64 @@ int main(int argc, char** argv)
     // DONE MOVED
 
       load_count += 1;
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-          //init_x - half_width_search + k * search_resolution, init_y, init_z,
-          //init_roll, init_pitch, init_yaw);
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-              //init_x, init_y - half_width_search + k * search_resolution, init_z,
-              //init_roll, init_pitch, init_yaw);
-      J_k = jexecutor.J_calc_wEuler_andLog(
-              init_x, init_y, init_z- half_width_search + k * search_resolution,
-              init_roll, init_pitch, init_yaw);
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-              //init_x, init_y, init_z,
-              //init_roll- half_width_search + k * search_resolution, init_pitch, init_yaw);
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-              //init_x, init_y, init_z,
-              //init_roll, init_pitch- half_width_search + k * search_resolution, init_yaw);
-      //J_k = jexecutor.J_calc_wEuler_andLog(
-              //init_x, init_y, init_z,
-              //init_roll, init_pitch, init_yaw- half_width_search + k * search_resolution);
+      switch (mode) {
+          case 1:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                  init_x - half_width_search + k * search_resolution, init_y, init_z,
+                  init_roll, init_pitch, init_yaw);
+              break;
+          case 2:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                      init_x, init_y - half_width_search + k * search_resolution, init_z,
+                      init_roll, init_pitch, init_yaw);
+              break;
+          case 3:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                      init_x, init_y, init_z- half_width_search + k * search_resolution,
+                      init_roll, init_pitch, init_yaw);
+              break;
+          case 4:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                      init_x, init_y, init_z,
+                      init_roll- half_width_search + k * search_resolution, init_pitch, init_yaw);
+              break;
+          case 5:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                      init_x, init_y, init_z,
+                      init_roll, init_pitch- half_width_search + k * search_resolution, init_yaw);
+              break;
+          case 6:
+              J_k = jexecutor.J_calc_wEuler_andLog(
+                      init_x, init_y, init_z,
+                      init_roll, init_pitch, init_yaw- half_width_search + k * search_resolution);
+              break;
+      }
       //J_k = jexecutor.J_calc_wEuler_andLog(
               //init_x, init_y, init_z,
               //init_roll, init_pitch, init_yaw);
       ROS_INFO("Processed:%d/%f", load_count,
                (1) * (((half_width_search * 2) / search_resolution) + 1));
       if (J_k < min_J_k) {
-        final_val = init_z - half_width_search + k * search_resolution;
+        switch (mode) {
+            case 1:
+                final_val = init_x - half_width_search + k * search_resolution;
+                break;
+            case 2:
+                final_val = init_y - half_width_search + k * search_resolution;
+                break;
+            case 3:
+                final_val = init_z - half_width_search + k * search_resolution;
+                break;
+            case 4:
+                final_val = init_roll - half_width_search + k * search_resolution;
+                break;
+            case 5:
+                final_val = init_pitch - half_width_search + k * search_resolution;
+                break;
+            case 6:
+                final_val = init_yaw - half_width_search + k * search_resolution;
+                break;
+        }
         // ROS_WARN("Optimized
         // value=%f",init_x-half_width_search+k*search_resolution);
         min_J_k = J_k;
@@ -903,7 +945,26 @@ int main(int argc, char** argv)
 
     //   sum+=final_val;
     // }
-    ROS_WARN("Optimized value z=%f", final_val);
+    switch (mode) {
+        case 1:
+            ROS_WARN("Optimized value x=%f", final_val);
+            break;
+        case 2:
+            ROS_WARN("Optimized value y=%f", final_val);
+            break;
+        case 3:
+            ROS_WARN("Optimized value z=%f", final_val);
+            break;
+        case 4:
+            ROS_WARN("Optimized value roll=%f", final_val);
+            break;
+        case 5:
+            ROS_WARN("Optimized value pitch=%f", final_val);
+            break;
+        case 6:
+            ROS_WARN("Optimized value yaw=%f", final_val);
+            break;
+    }
   }
   exit(-1);
 

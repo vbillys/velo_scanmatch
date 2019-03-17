@@ -210,11 +210,12 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   PointType point;
   std::vector<pcl::PointCloud<PointType> > laserCloudScans(N_SCANS);
   for (int i = 0; i < cloudSize; i++) {
-    point.x = laserCloudIn.points[i].y;
+    point.x = -laserCloudIn.points[i].y;
     point.y = laserCloudIn.points[i].z;
-    point.z = laserCloudIn.points[i].x;
+    point.z = -laserCloudIn.points[i].x;
 
     float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
+    if (std::isnan(angle)) continue;
     int scanID;
     int roundedAngle = int(angle + (angle<0.0?-0.5:+0.5)); 
     if (roundedAngle > 0){
@@ -226,7 +227,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     //ROS_INFO("scanID: %d roundedAngle: %d", scanID, roundedAngle);
     if (scanID > (N_SCANS - 1) || scanID < 0 ){
       count--;
-      ROS_WARN("Failed scanID");
+      ROS_WARN("Failed scanID %d , %f, %d", scanID, angle, roundedAngle);
       continue;
     }
 
@@ -550,6 +551,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pcl::VoxelGrid<PointType> downSizeFilter;
     downSizeFilter.setInputCloud(surfPointsLessFlatScan);
     downSizeFilter.setLeafSize(0.2, 0.2, 0.2);
+    // ROS_INFO_STREAM("voxelgrid filter in scanRegistration");
     downSizeFilter.filter(surfPointsLessFlatScanDS);
 
     surfPointsLessFlat += surfPointsLessFlatScanDS;

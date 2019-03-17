@@ -516,6 +516,11 @@ int main(int argc, char** argv) {
     VPointCloud pcl_cloud;
     pcl::fromROSMsg(*pc2_msg, pcl_cloud);
 
+    for (auto & pp : pcl_cloud) {
+        pp.x = -pp.x;
+        pp.y = -pp.y;
+    }
+
     // TODO: Put additional spacing condition here...
     if(transform_interpolation_buffer.Has(cartographer_ros::FromRos(pc2_msg->header.stamp)))
     {
@@ -586,7 +591,16 @@ int main(int argc, char** argv) {
 
 	  // passthorugh
 	  t_ppcl_cloud->clear();
-	  pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
+	  // pcl::copyPointCloud(pcl_vcloud_noNaN, *t_ppcl_cloud);
+      for (auto const& pp : pcl_vcloud_noNaN) {
+          pcl::PointXYZ _point;
+          _point.x = -pp.x;
+          _point.y = -pp.y;
+          _point.z = pp.z;
+          // _point.intensity = -pp.intensity;
+          // _point.ring = -pp.ring;
+          t_ppcl_cloud->push_back(_point);
+      }
 	  pcl::PassThrough<pcl::PointXYZ> pass;
 	  pass.setInputCloud (t_ppcl_cloud);
 	  pass.setFilterFieldName ("x");

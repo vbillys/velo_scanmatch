@@ -459,11 +459,13 @@ int main(int argc, char** argv)
       laserCloudOri->clear();
       coeffSel->clear();
 
-      transform[3] -= 0;//imuVeloFromStartX * scanPeriod;
-      transform[3] -= g_force_SE2 ? imuVeloFromStartX * scanPeriod : 0;
+      // transform[3] -= 0;//imuVeloFromStartX * scanPeriod;
+      //transform[3] -= g_force_SE2 ? imuVeloFromStartX * scanPeriod : 0;
+      transform[3] -= g_force_SE2 ? 0: imuVeloFromStartX * scanPeriod;
       transform[4] -= imuVeloFromStartY * scanPeriod;
-      transform[5] -= 0;//imuVeloFromStartZ * scanPeriod;
-      transform[5] -= g_force_SE2 ? imuVeloFromStartZ * scanPeriod : 0;
+      // transform[5] -= 0;//imuVeloFromStartZ * scanPeriod;
+      //transform[5] -= g_force_SE2 ? imuVeloFromStartZ * scanPeriod : 0;
+      transform[5] -= g_force_SE2 ? 0: imuVeloFromStartZ * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -796,14 +798,17 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transform[0] += 0;//matX.at<float>(0, 0);
-	  transform[0] += g_force_SE2 ? matX.at<float>(0, 0) : 0;
+          // transform[0] += 0;//matX.at<float>(0, 0);
+	  // transform[0] += g_force_SE2 ? matX.at<float>(0, 0) : 0;
+          transform[0] += g_force_SE2 ? 0: matX.at<float>(0, 0);
           transform[1] += matX.at<float>(1, 0);
-          transform[2] += 0;//matX.at<float>(2, 0);
-	  transform[2] += g_force_SE2 ? matX.at<float>(2, 0) : 0;
+          // transform[2] += 0;//matX.at<float>(2, 0);
+	  // transform[2] += g_force_SE2 ? matX.at<float>(2, 0) : 0;
+          transform[2] += g_force_SE2 ? 0: matX.at<float>(2, 0);
           transform[3] += matX.at<float>(3, 0);
-          transform[4] += 0;//matX.at<float>(4, 0);
-	  transform[4] += g_force_SE2 ? matX.at<float>(4, 0) : 0;
+          // transform[4] += 0;//matX.at<float>(4, 0);
+	  // transform[4] += g_force_SE2 ? matX.at<float>(4, 0) : 0;
+          transform[4] += g_force_SE2 ? 0: matX.at<float>(4, 0);
           transform[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){

@@ -4,26 +4,37 @@
 	
 	<!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-left_forward20.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-left_forward.bag">-->
         <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-a_straight_foward.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-a_straight_foward.bag">-->
-        <node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-left_forward_zero.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-left_forward.bag">
+        <node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-left_forward_loam.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-left_forward.bag">
         <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-a_straight_foward_zero.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-a_straight_foward.bag">-->
         <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-a_2019-01-11-15-09-42_0_zero.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-a_2019-01-11-15-09-42_0.bag">-->
-		<!--<param name="pc_topic" value="/velodyne_top/velodyne_points"/>-->
-		<param name="pc_topic" value="/velodyne_front/velodyne_points"/>
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/map/bus2-cet-map_2019-01-24-13-22-38_0_zero.pbstream -bag_filenames /tmpmount/bus2calib/map/bus2-cet-map_2019-01-24-13-22-38_0.bag">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/map/bus2-cet-map_2019-01-24-13-22-38_0_loam.pbstream -bag_filenames /tmpmount/bus2calib/map/bus2-cet-map_2019-01-24-13-22-38_0.bag">-->
+        <!--<node name="traj_process" pkg="velo_scanmatch" type="calib_process" output="screen" args="-traj_filename /tmpmount/bus2calib/bus2-interf-forward1-leftlate_loam.pbstream -bag_filenames /tmpmount/bus2calib/bus2-interf-forward1-leftlate.bag">-->
+                <param name="pc_topic" value="/velodyne_front/velodyne_points"/>
+                <!--<param name="pc_topic" value="/velodyne_back/velodyne_points"/>-->
+                <!--<param name="pc_topic" value="/velodyne_center/velodyne_points"/>-->
 		<param name="publish_pc" value="false"/>
 		<param name="use_ref" value="false"/>
 		<param name="calibrate" value="true"/>
 
-		<param name="mode" value="6"/>
+		<param name="mode" value="3"/>
                 <!--<param name="search_resolution" value="0.1"/>-->
                 <!--<param name="search_resolution" value="0.02"/>-->
-                <!--<param name="search_resolution" value="0.001"/>-->
-                <param name="search_resolution" value="0.0001"/>
+                <!--<param name="search_resolution" value="0.01"/>-->
+                <param name="search_resolution" value="0.001"/>
+                <!--<param name="search_resolution" value="0.0001"/>-->
                 <!--<param name="search_resolution" value="0.5"/>-->
-                <!--<param name="half_width_search" value="5"/>-->
 		<!--<param name="search_resolution" value="0.025"/>-->
+                <!--<param name="half_width_search" value="5"/>-->
+                <!--<param name="half_width_search" value="2"/>-->
                 <!--<param name="half_width_search" value="1"/>-->
-                <!--<param name="half_width_search" value=".05"/>-->
-                <param name="half_width_search" value=".001"/>
+                <!--<param name="half_width_search" value=".1"/>-->
+                <!--<param name="half_width_search" value=".2"/>-->
+                <!--<param name="half_width_search" value=".3"/>-->
+                <param name="half_width_search" value=".05"/>
+                <!--<param name="half_width_search" value=".02"/>-->
+                <!--<param name="half_width_search" value=".01"/>-->
+                <!--<param name="half_width_search" value=".001"/>-->
                 <!--<param name="half_width_search" value="0.05"/>-->
 
 		<param name="search_resolution_xyz" value="0.01"/>
@@ -32,24 +43,73 @@
 		<param name="search_resolution_rpy" value="0.1"/>
 		<param name="half_width_search_rpy" value="5"/>
 
-		<!--<param name="init_x" value="8.146"/>-->
-		<!--<param name="init_y" value="0.928"/>-->
-		<!--<param name="init_z" value="2.834"/>-->
-                <param name="init_x" value="8.324"/>
+                <!--bus2init-->
+                <!--<param name="init_x" value="8.146"/>-->
+                <!--<param name="init_y" value="0.928"/>-->
+                <!--<param name="init_z" value="2.834"/>-->
+
+                <!--<param name="init_x" value="8.324"/>-->
+                <!--<param name="init_x" value="8.304"/>-->
+                <!--<param name="init_x" value="8.293"/>-->
+
 		<!--<param name="init_x" value="12.624"/>-->
                 <!--<param name="init_x" value="20.624"/>-->
-                <param name="init_y" value="0.650"/>
+                <!--<param name="init_y" value="0.650"/>-->
+                <!--<param name="init_y" value="0.550"/>-->
+                <!--<param name="init_y" value="0.538"/>-->
+
                 <!--<param name="init_y" value="2.150"/>-->
                 <!--<param name="init_z" value="2.643"/>-->
                 <!--<param name="init_z" value="2.443"/>-->
-                <param name="init_z" value="2.475"/>
-		<!--<param name="init_x" value="0"/>-->
-		<!--<param name="init_y" value="0"/>-->
-		<!--<param name="init_z" value="0"/>-->
+                <!--<param name="init_z" value="2.475"/>-->
+                <!--<param name="init_z" value="2.4749"/>-->
 
-		<param name="init_roll" value="0.0"/>
-		<param name="init_pitch" value="0.0"/>
-		<param name="init_yaw" value="0.0"/>
+                <!--<param name="init_x" value="11.129"/>-->
+                <!--<param name="init_x" value="-11.129"/>-->
+                <!--<param name="init_x" value="-10.229"/>-->
+                <!--<param name="init_x" value="-9.129"/>-->
+                <!--<param name="init_y" value="-1.897"/>-->
+                <!--<param name="init_y" value="-2.017"/>-->
+                <!--<param name="init_y" value="1.897"/>-->
+                <param name="init_x" value="0"/>
+                <!--<param name="init_x" value="-0.1"/>-->
+                <!--<param name="init_x" value="-0.21"/>-->
+                <param name="init_y" value="0"/>
+                <!--<param name="init_y" value="0.3"/>-->
+                <!--<param name="init_y" value="0.28"/>-->
+                <!--<param name="init_x" value="0.597"/>-->
+                <!--<param name="init_x" value="1.397"/>-->
+                <!--<param name="init_x" value="1.557"/>-->
+                <!--<param name="init_y" value="-0.935"/>-->
+                <!--<param name="init_y" value="-1.235"/>-->
+                <!--<param name="init_z" value="0"/>-->
+                <!--<param name="init_z" value="-0.3"/>-->
+                <!--<param name="init_z" value="-2.380"/>-->
+                <!--<param name="init_z" value="-2.02"/>-->
+                <param name="init_z" value="-.38"/>
+
+                <param name="init_roll" value="0.0"/>
+                <!--<param name="init_roll" value="2.08"/>-->
+                <!--<param name="init_roll" value="1.0"/>-->
+                <!--<param name="init_roll" value="0.72"/>-->
+                <!--<param name="init_roll" value="-0.5"/>-->
+                <!--<param name="init_roll" value="-0.78"/>-->
+                <param name="init_pitch" value="0.0"/>
+                <!--<param name="init_pitch" value="-1.0"/>-->
+                <!--<param name="init_pitch" value="-0.74"/>-->
+                <!--<param name="init_pitch" value="-0.5"/>-->
+                <!--<param name="init_pitch" value="-0.48"/>-->
+                <!--<param name="init_pitch" value="10.0"/>-->
+                <!--<param name="init_pitch" value="11.8"/>-->
+                <param name="init_yaw" value="0.0"/>
+                <!--<param name="init_yaw" value="2.24"/>-->
+                <!--<param name="init_yaw" value="-0.5"/>-->
+                <!--<param name="init_yaw" value="-0.8"/>-->
+                <!--<param name="init_yaw" value="180.0"/>-->
+                <!--<param name="init_yaw" value="180.18"/>-->
+                <!--<param name="init_yaw" value="-3.0"/>-->
+                <!--<param name="init_yaw" value="-3.2"/>-->
+                <!--<param name="init_yaw" value="-3.23"/>-->
 
 		<param name="starting_mssg_number" value="0"/>
 		<param name="ending_mssg_number" value="15000.0"/>
